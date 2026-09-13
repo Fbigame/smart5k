@@ -268,6 +268,26 @@ const TriangleBoard: React.FC = () => {
     setSelectedShape(null);
   };
 
+  const removeShapeFromBoard = (shapeId: number) => {
+    setBoard(prevBoard =>
+      prevBoard.map(cell => {
+        if (!cell.shapeIds.includes(shapeId)) {
+          return cell;
+        }
+
+        const nextShapeIds = cell.shapeIds.filter(id => id !== shapeId);
+        const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
+
+        return {
+          ...cell,
+          shapeIds: nextShapeIds,
+          filled: nextShapeIds.length > 0,
+          shapeId: nextTopShapeId,
+        };
+      })
+    );
+  };
+
   const handleShapeSelect = (shapeId: number) => {
     setSelectedShape(selectedShape === shapeId ? null : shapeId);
   };
@@ -788,12 +808,13 @@ const TriangleBoard: React.FC = () => {
           <button
             className="btn btn-secondary"
             onClick={() => {
+              removeShapeFromBoard(movingShapeId);
               setMovingShapeId(null);
               setHoveredTriangleId(null);
               setSnappedTriangles(null);
             }}
           >
-            Cancel Move
+            Move Back
           </button>
         )}
         <button className="btn btn-primary" onClick={() => {
