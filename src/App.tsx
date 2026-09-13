@@ -41,6 +41,7 @@ interface SolutionsResponse {
 }
 
 const API_BASE = '/api'
+const FIRST_PLAY_GUIDE_SEEN_KEY = 'smart5k-first-play-guide-seen'
 const SHAPE_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F',
   '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0A1', '#E59866', '#AED6F1',
@@ -141,6 +142,7 @@ function hasLayoutContent(layout: LayoutDetails | null): boolean {
 
 function App() {
   const [started, setStarted] = useState(false)
+  const [showFirstPlayGuide, setShowFirstPlayGuide] = useState(false)
   const [stats, setStats] = useState<ClearStats>({ totalSolutions: 0 })
   const [solutions, setSolutions] = useState<SolutionSummary[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -266,6 +268,28 @@ function App() {
     }
   }
 
+  const handleStartGame = () => {
+    setStarted(true)
+
+    try {
+      const seen = window.localStorage.getItem(FIRST_PLAY_GUIDE_SEEN_KEY) === '1'
+      if (!seen) {
+        setShowFirstPlayGuide(true)
+      }
+    } catch {
+      setShowFirstPlayGuide(true)
+    }
+  }
+
+  const closeFirstPlayGuide = () => {
+    setShowFirstPlayGuide(false)
+    try {
+      window.localStorage.setItem(FIRST_PLAY_GUIDE_SEEN_KEY, '1')
+    } catch {
+      // Ignore storage failures in restricted environments.
+    }
+  }
+
   const renderLayoutBoard = (layout: LayoutDetails | null) => {
     const size = 20
     const h = (size * Math.sqrt(3)) / 2
@@ -384,7 +408,7 @@ function App() {
         totalSolutions={stats.totalSolutions}
         started={started}
         onOpenSolutions={openSolutionsPage}
-        onStartGame={() => setStarted(true)}
+        onStartGame={handleStartGame}
         onBackHome={backToHome}
       />
 
@@ -485,6 +509,29 @@ function App() {
             </button>
           </div>
         </section>
+      )}
+
+      {page === 'home' && started && showFirstPlayGuide && (
+        <div className="first-play-guide-backdrop" role="presentation" onClick={closeFirstPlayGuide}>
+          <section
+            className="first-play-guide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="first-play-guide-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <h2 id="first-play-guide-title">操作说明</h2>
+            <p>第一次游玩，先看这三个关键操作：</p>
+            <ul>
+              <li>右侧图形：点击弹出菜单可旋转/翻转，拖动可放到左侧棋盘。</li>
+              <li>左侧已放置图形：拖动可移动位置，点按可再次旋转/翻转。</li>
+              <li>目标：填满所有可用三角格后即通关，系统会自动记录解法。</li>
+            </ul>
+            <button type="button" className="first-play-guide-btn" onClick={closeFirstPlayGuide}>
+              我知道了，开始挑战
+            </button>
+          </section>
+        </div>
       )}
     </main>
   )
