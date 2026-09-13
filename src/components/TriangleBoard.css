@@ -209,12 +209,57 @@
   }
 
   .triangle-game-container .game-content {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     border-radius: 14px;
-    padding: 10px;
+    padding: 8px;
+    overflow: visible;
+  }
+
+  .triangle-game-container .shape-section {
+    order: 1;
+    flex: 0 0 auto;
+    width: 100%;
+    padding: 2px 2px 6px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    touch-action: pan-x;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .triangle-game-container .board-section {
+    order: 2;
+    padding: 4px 0 0;
+  }
+
+  .triangle-game-container .quick-action-toolbar {
+    margin-bottom: 4px;
   }
 
   .triangle-game-container .quick-action-btn {
     font-size: 12px;
     padding: 7px 8px;
+  }
+
+  .triangle-game-container .shapes-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .triangle-game-container .shape-card {
+    padding: 4px;
+    border-radius: 6px;
+    touch-action: none;
+  }
+
+  .triangle-game-container .shape-card svg {
+    max-width: 118px;
+    margin: 0 auto;
+  }
+
+  .triangle-game-container .triangle-board {
+    max-height: 66vh;
+    height: auto;
   }
 }
