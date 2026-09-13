@@ -101,6 +101,36 @@ function getMiniTrianglePoints(cell: MiniTriangleCell, size: number): string {
   return `${colX - size / 2},${rowY} ${colX + size / 2},${rowY} ${colX},${rowY + h}`
 }
 
+function expandPolygonPoints(points: string, expandBy: number): string {
+  const parsed = points
+    .trim()
+    .split(/\s+/)
+    .map(point => point.split(',').map(Number) as [number, number])
+    .filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y))
+
+  if (parsed.length < 3 || expandBy <= 0) {
+    return points
+  }
+
+  const center = parsed.reduce(
+    (acc, [x, y]) => ({ x: acc.x + x, y: acc.y + y }),
+    { x: 0, y: 0 }
+  )
+  const cx = center.x / parsed.length
+  const cy = center.y / parsed.length
+
+  return parsed
+    .map(([x, y]) => {
+      const dx = x - cx
+      const dy = y - cy
+      const length = Math.hypot(dx, dy) || 1
+      const nx = x + (dx / length) * expandBy
+      const ny = y + (dy / length) * expandBy
+      return `${nx},${ny}`
+    })
+    .join(' ')
+}
+
 function hasLayoutContent(layout: LayoutDetails | null): boolean {
   if (!layout) return false
   const hasStacks = Array.isArray(layout.cellStacks) && layout.cellStacks.length > 0
@@ -303,11 +333,15 @@ function App() {
             : topShapeId > 0
             ? SHAPE_COLORS[(topShapeId - 1) % SHAPE_COLORS.length]
             : '#ffffff'
+          const basePoints = getMiniTrianglePoints(cell, size)
+          const points = !disabled && topShapeId > 0
+            ? expandPolygonPoints(basePoints, 0.45)
+            : basePoints
 
           return (
             <polygon
               key={`layout-cell-${cell.id}`}
-              points={getMiniTrianglePoints(cell, size)}
+              points={points}
               fill={fill}
               stroke="none"
               strokeWidth={0}
@@ -321,7 +355,7 @@ function App() {
             {item.cells.map(cell => (
               <polygon
                 key={`detail-outline-cell-${item.shapeId}-${cell.id}`}
-                points={getMiniTrianglePoints(cell, size)}
+                points={expandPolygonPoints(getMiniTrianglePoints(cell, size), 0.45)}
                 fill="#000"
                 stroke="none"
                 strokeWidth={0}
