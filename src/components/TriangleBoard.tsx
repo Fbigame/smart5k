@@ -54,7 +54,8 @@ const DISABLED_CELLS = new Set<string>();
 const TriangleBoard: React.FC = () => {
   const [board, setBoard] = useState<TriangleCell[]>([]);
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
-  const [hoveredTriangleId, setHoveredTriangleId] = useState<number | null>(null);
+  const [, setHoveredTriangleId] = useState<number | null>(null);
+  const [snappedTriangles, setSnappedTriangles] = useState<number[] | null>(null);
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -181,7 +182,14 @@ const TriangleBoard: React.FC = () => {
     if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
 
     const rotationStep = shapeRotations[selectedShape] ?? 0;
-    const mappedTriangles = getMappedTriangles(selectedShape, clickedTriangleId, undefined, rotationStep);
+    const clickedCenter = getTriangleCenter(clickedCell, triangleSize);
+    const bestSnap = findBestSnapPlacement(
+      selectedShape,
+      clickedCenter.x,
+      clickedCenter.y,
+      rotationStep
+    );
+    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(selectedShape, clickedTriangleId, undefined, rotationStep);
     if (mappedTriangles) {
       setBoard(prevBoard =>
         prevBoard.map(cell => {
@@ -203,6 +211,7 @@ const TriangleBoard: React.FC = () => {
       // 放置成功后，清除选择
       setSelectedShape(null);
       setHoveredTriangleId(null);
+      setSnappedTriangles(null);
     }
   };
 
@@ -214,6 +223,7 @@ const TriangleBoard: React.FC = () => {
 
     setMovingShapeId(cell.shapeId);
     setHoveredTriangleId(parseInt(cellId.replace('cell-', '')));
+    setSnappedTriangles(null);
     setSelectedShape(null);
   };
 
@@ -222,7 +232,12 @@ const TriangleBoard: React.FC = () => {
 
     const targetTriangleId = parseInt(cellId.replace('cell-', ''));
     const rotationStep = shapeRotations[movingShapeId] ?? 0;
-    const mappedTriangles = getMappedTriangles(movingShapeId, targetTriangleId, movingShapeId, rotationStep);
+    const targetCell = board.find(c => c.id === cellId);
+    const targetCenter = targetCell ? getTriangleCenter(targetCell, triangleSize) : null;
+    const bestSnap = targetCenter
+      ? findBestSnapPlacement(movingShapeId, targetCenter.x, targetCenter.y, rotationStep, movingShapeId)
+      : null;
+    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, targetTriangleId, movingShapeId, rotationStep);
 
     if (mappedTriangles) {
       const movingId = movingShapeId;
@@ -248,12 +263,14 @@ const TriangleBoard: React.FC = () => {
 
     setMovingShapeId(null);
     setHoveredTriangleId(null);
+    setSnappedTriangles(null);
   };
 
   useEffect(() => {
     const cancelMove = () => {
       setMovingShapeId(null);
       setHoveredTriangleId(null);
+      setSnappedTriangles(null);
     };
 
     window.addEventListener('mouseup', cancelMove);
@@ -446,6 +463,60 @@ const TriangleBoard: React.FC = () => {
       });
   }, [board]);
 
+  const centerById = useMemo(() => {
+    const result = new Map<number, { x: number; y: number }>();
+    for (const cell of cellCenters) {
+      result.set(cell.id, { x: cell.x, y: cell.y });
+    }
+    return result;
+  }, [cellCenters]);
+
+  const findBestSnapPlacement = (
+    shapeId: number,
+    mouseX: number,
+    mouseY: number,
+    rotationStep: number,
+    allowOverlapShapeId?: number
+  ): { anchorId: number; mappedTriangles: number[] } | null => {
+    if (cellCenters.length === 0) return null;
+
+    let best: { anchorId: number; mappedTriangles: number[] } | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+
+    for (const anchor of cellCenters) {
+      const mappedTriangles = getMappedTriangles(shapeId, anchor.id, allowOverlapShapeId, rotationStep);
+      if (!mappedTriangles || mappedTriangles.length === 0) continue;
+
+      let sumX = 0;
+      let sumY = 0;
+      let valid = true;
+      for (const triangleId of mappedTriangles) {
+        const center = centerById.get(triangleId);
+        if (!center) {
+          valid = false;
+          break;
+        }
+        sumX += center.x;
+        sumY += center.y;
+      }
+
+      if (!valid) continue;
+
+      const centroidX = sumX / mappedTriangles.length;
+      const centroidY = sumY / mappedTriangles.length;
+      const dx = centroidX - mouseX;
+      const dy = centroidY - mouseY;
+      const score = dx * dx + dy * dy;
+
+      if (score < bestScore) {
+        bestScore = score;
+        best = { anchorId: anchor.id, mappedTriangles };
+      }
+    }
+
+    return best;
+  };
+
   const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
 
@@ -453,25 +524,22 @@ const TriangleBoard: React.FC = () => {
     const mouseX = ((event.clientX - rect.left) / rect.width) * svgWidth;
     const mouseY = ((event.clientY - rect.top) / rect.height) * svgHeight;
 
-    let nearestId = cellCenters[0].id;
-    let minDist = Number.POSITIVE_INFINITY;
+    const rotationStep = shapeRotations[activePreviewShapeId] ?? 0;
+    const bestSnap = findBestSnapPlacement(
+      activePreviewShapeId,
+      mouseX,
+      mouseY,
+      rotationStep,
+      movingShapeId ?? undefined
+    );
 
-    for (const cell of cellCenters) {
-      const dx = cell.x - mouseX;
-      const dy = cell.y - mouseY;
-      const dist = dx * dx + dy * dy;
-
-      if (dist < minDist) {
-        minDist = dist;
-        nearestId = cell.id;
-      }
-    }
-
-    setHoveredTriangleId(nearestId);
+    setHoveredTriangleId(bestSnap?.anchorId ?? null);
+    setSnappedTriangles(bestSnap?.mappedTriangles ?? null);
   };
 
   const handleBoardMouseLeave = () => {
     setHoveredTriangleId(null);
+    setSnappedTriangles(null);
   };
 
   // 限制最大尺寸，占用左侧2/3空间
@@ -567,16 +635,10 @@ const TriangleBoard: React.FC = () => {
               })}
 
               {/* 虚拟形状显示 - 跟随鼠标 */}
-              {activePreviewShapeId && hoveredTriangleId !== null && SHAPES.find(s => s.id === activePreviewShapeId) && (
+              {activePreviewShapeId && snappedTriangles && SHAPES.find(s => s.id === activePreviewShapeId) && (
                 (() => {
                   const shapeId = activePreviewShapeId;
-                  const rotationStep = shapeRotations[shapeId] ?? 0;
-                  const mappedTriangles = getMappedTriangles(
-                    shapeId,
-                    hoveredTriangleId,
-                    movingShapeId ?? undefined,
-                    rotationStep
-                  );
+                  const mappedTriangles = snappedTriangles;
                   if (!mappedTriangles) return null;
 
                   return mappedTriangles.map(triangleId => {
@@ -679,6 +741,7 @@ const TriangleBoard: React.FC = () => {
           setSelectedShape(null);
           setMovingShapeId(null);
           setHoveredTriangleId(null);
+          setSnappedTriangles(null);
         }}>
           Clear Board
         </button>
