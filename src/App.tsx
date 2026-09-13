@@ -41,6 +41,7 @@ interface SolutionsResponse {
 }
 
 interface ClearResponse {
+  saved?: boolean
   stats?: ClearStats
   solution?: {
     hash: string
@@ -152,6 +153,7 @@ function App() {
   const [showFirstPlayGuide, setShowFirstPlayGuide] = useState(false)
   const [showClearSolutionGuide, setShowClearSolutionGuide] = useState(false)
   const [pendingSolvedHash, setPendingSolvedHash] = useState<string | null>(null)
+  const [pendingIsFirstSolution, setPendingIsFirstSolution] = useState<boolean | null>(null)
   const [stats, setStats] = useState<ClearStats>({ totalSolutions: 0 })
   const [solutions, setSolutions] = useState<SolutionSummary[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -285,6 +287,7 @@ function App() {
 
       const solvedHash = data.solution?.hash ?? record.hash
       setPendingSolvedHash(solvedHash)
+      setPendingIsFirstSolution(data.saved === true)
       setShowClearSolutionGuide(true)
     } catch {
       await loadStats()
@@ -336,6 +339,8 @@ function App() {
 
   const closeClearSolutionGuide = () => {
     setShowClearSolutionGuide(false)
+    setPendingSolvedHash(null)
+    setPendingIsFirstSolution(null)
   }
 
   const handleViewSolvedDetail = async () => {
@@ -344,6 +349,7 @@ function App() {
     const hash = pendingSolvedHash
     setShowClearSolutionGuide(false)
     setPendingSolvedHash(null)
+    setPendingIsFirstSolution(null)
     await goToSolutionDetail(hash)
   }
 
@@ -601,7 +607,12 @@ function App() {
             onClick={event => event.stopPropagation()}
           >
             <h2 id="clear-solution-guide-title">通关成功</h2>
-            <p>你的这套摆法已经生成解法详情，可查看首次时间、总人数和布局图。</p>
+            <p>
+              {pendingIsFirstSolution
+                ? '这是一个首次通关解法，已作为新解法收录。'
+                : '这套摆法已有人通关过，本次会累计到该解法人数。'}
+            </p>
+            <p>可查看解法详情中的首次时间、总人数和布局图。</p>
             <div className="clear-solution-guide-actions">
               <button type="button" className="clear-solution-guide-ghost" onClick={closeClearSolutionGuide}>
                 继续游戏
