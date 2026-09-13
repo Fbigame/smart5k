@@ -210,3 +210,10 @@
   align-self: flex-end;
   margin-top: auto;
 }
+
+.floating-shape-preview {
+  position: fixed;
+  pointer-events: none;
+  z-index: 50;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.25));
+}

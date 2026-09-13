@@ -54,6 +54,7 @@ const TriangleBoard: React.FC = () => {
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
   const [hoveredTriangleId, setHoveredTriangleId] = useState<number | null>(null);
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
 
@@ -274,6 +275,20 @@ const TriangleBoard: React.FC = () => {
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
+
+  useEffect(() => {
+    if (!activePreviewShapeId) {
+      setCursorPosition(null);
+      return;
+    }
+
+    const handleGlobalMouseMove = (event: MouseEvent) => {
+      setCursorPosition({ x: event.clientX, y: event.clientY });
+    };
+
+    window.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [activePreviewShapeId]);
 
   const cellCenters = useMemo(() => {
     return board
@@ -512,6 +527,43 @@ const TriangleBoard: React.FC = () => {
 
       <div className="game-footer">
       </div>
+
+      {activePreviewShapeId && cursorPosition && (
+        <div
+          className="floating-shape-preview"
+          style={{
+            left: cursorPosition.x + 16,
+            top: cursorPosition.y + 16,
+          }}
+        >
+          <svg width="120" height="120" viewBox="0 0 120 120" preserveAspectRatio="xMidYMid meet">
+            {(() => {
+              const shape = SHAPES.find(s => s.id === activePreviewShapeId);
+              if (!shape) return null;
+
+              const shapeCells = shape.triangles
+                .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
+                .filter((cell): cell is TriangleCell => Boolean(cell));
+
+              if (shapeCells.length !== shape.triangles.length) {
+                return null;
+              }
+
+              const baseCell = shapeCells[0];
+              return shapeCells.map(cell => (
+                <polygon
+                  key={`cursor-preview-${cell.id}`}
+                  points={getPreviewTriangleCoords(cell, baseCell, 30, 60, 38)}
+                  fill={SHAPE_COLORS[activePreviewShapeId - 1]}
+                  stroke={SHAPE_COLORS[activePreviewShapeId - 1]}
+                  strokeWidth="1.5"
+                  opacity="0.7"
+                />
+              ));
+            })()}
+          </svg>
+        </div>
+      )}
     </div>
   );
 };
