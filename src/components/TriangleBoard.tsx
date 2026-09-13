@@ -62,7 +62,10 @@ const TriangleBoard: React.FC = () => {
   const [panelPointerShapeId, setPanelPointerShapeId] = useState<number | null>(null);
   const [draggingFromPanel, setDraggingFromPanel] = useState(false);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
-  const [shapeFlips, setShapeFlips] = useState<Record<number, boolean>>({});
+  const [shapeFlips, setShapeFlips] = useState<Record<number, boolean>>({
+    4: true,
+    7: true,
+  });
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
