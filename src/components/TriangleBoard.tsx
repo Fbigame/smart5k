@@ -275,6 +275,9 @@ const TriangleBoard: React.FC = () => {
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
+  const rightPreviewCanvasSize = 220;
+  const rightPreviewCenterX = rightPreviewCanvasSize / 2;
+  const rightPreviewCenterY = 72;
 
   useEffect(() => {
     if (!activePreviewShapeId) {
@@ -478,7 +481,12 @@ const TriangleBoard: React.FC = () => {
                   className={`shape-card ${isSelected ? 'selected' : ''}`}
                   onClick={() => handleShapeSelect(idx + 1)}
                 >
-                  <svg width="120" height="120" viewBox="0 0 200 250" preserveAspectRatio="xMidYMid meet">
+                  <svg
+                    width={rightPreviewCanvasSize}
+                    height={rightPreviewCanvasSize}
+                    viewBox={`0 0 ${rightPreviewCanvasSize} ${rightPreviewCanvasSize}`}
+                    preserveAspectRatio="xMidYMid meet"
+                  >
                     {shape ? (
                       <>
                         {(() => {
@@ -493,7 +501,13 @@ const TriangleBoard: React.FC = () => {
                               return (
                                 <polygon
                                   key={cell.id}
-                                  points={getPreviewTriangleCoords(cell, baseCell, 75, 100, 95)}
+                                  points={getPreviewTriangleCoords(
+                                    cell,
+                                    baseCell,
+                                    triangleSize,
+                                    rightPreviewCenterX,
+                                    rightPreviewCenterY
+                                  )}
                                   fill={color}
                                   stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
                                   strokeWidth={isSelected ? '2' : '1'}
@@ -531,7 +545,12 @@ const TriangleBoard: React.FC = () => {
             top: cursorPosition.y,
           }}
         >
-          <svg width="132" height="132" viewBox="0 0 132 132" preserveAspectRatio="xMidYMid meet">
+          <svg
+            width={rightPreviewCanvasSize}
+            height={rightPreviewCanvasSize}
+            viewBox={`0 0 ${rightPreviewCanvasSize} ${rightPreviewCanvasSize}`}
+            preserveAspectRatio="xMidYMid meet"
+          >
             {(() => {
               const shape = SHAPES.find(s => s.id === activePreviewShapeId);
               if (!shape) return null;
@@ -548,7 +567,13 @@ const TriangleBoard: React.FC = () => {
               return shapeCells.map(cell => (
                 <polygon
                   key={`cursor-preview-${cell.id}`}
-                  points={getPreviewTriangleCoords(cell, baseCell, 28, 66, 66)}
+                  points={getPreviewTriangleCoords(
+                    cell,
+                    baseCell,
+                    triangleSize,
+                    rightPreviewCenterX,
+                    rightPreviewCenterY
+                  )}
                   fill={SHAPE_COLORS[activePreviewShapeId - 1]}
                   stroke={SHAPE_COLORS[activePreviewShapeId - 1]}
                   strokeWidth="1.5"
