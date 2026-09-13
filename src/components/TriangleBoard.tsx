@@ -54,6 +54,7 @@ const TriangleBoard: React.FC = () => {
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
   const [hoveredTriangleId, setHoveredTriangleId] = useState<number | null>(null);
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
+  const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
@@ -90,49 +91,79 @@ const TriangleBoard: React.FC = () => {
   const getMappedTriangles = (
     shapeId: number,
     anchorTriangleId: number,
-    allowOverlapShapeId?: number
+    allowOverlapShapeId?: number,
+    rotationStep: number = 0
   ): number[] | null => {
     const shape = SHAPES.find(s => s.id === shapeId);
     if (!shape || shape.triangles.length === 0) return null;
 
-    const baseCellRef = board.find(c => c.id === `cell-${shape.triangles[0]}`);
-    const anchorCell = board.find(c => c.id === `cell-${anchorTriangleId}`);
-    if (!baseCellRef || !anchorCell) return null;
-
-    const relativePositions = shape.triangles
+    const sourceCells = shape.triangles
       .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
-      .filter((cell): cell is TriangleCell => Boolean(cell))
-      .map(cell => ({
-        row: cell.row - baseCellRef.row,
-        col: cell.col - baseCellRef.col,
-        direction: cell.direction,
-      }));
+      .filter((cell): cell is TriangleCell => Boolean(cell));
 
-    if (relativePositions.length !== shape.triangles.length) {
+    if (sourceCells.length !== shape.triangles.length) {
       return null;
     }
 
+    const baseCellRef = sourceCells[0];
+    const anchorCell = board.find(c => c.id === `cell-${anchorTriangleId}`);
+    if (!baseCellRef || !anchorCell) return null;
+
+    const normalizedRotation = ((rotationStep % 6) + 6) % 6;
+    const angle = (normalizedRotation * Math.PI) / 3;
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+    const baseCenter = getTriangleCenter(baseCellRef, triangleSize);
+    const anchorCenter = getTriangleCenter(anchorCell, triangleSize);
+    const candidates = board.filter(cell => !DISABLED_CELLS.has(cell.id));
+    const usedCellIds = new Set<string>();
     const mappedTriangles: number[] = [];
-    for (const relPos of relativePositions) {
-      const targetRow = anchorCell.row + relPos.row;
-      const targetCol = anchorCell.col + relPos.col;
+    const snapDistance = triangleSize * 0.55;
+    const snapDistanceSquared = snapDistance * snapDistance;
 
-      const targetCell = board.find(
-        c => c.row === targetRow && c.col === targetCol && c.direction === relPos.direction
-      );
+    for (const sourceCell of sourceCells) {
+      const sourceCenter = getTriangleCenter(sourceCell, triangleSize);
+      const relX = sourceCenter.x - baseCenter.x;
+      const relY = sourceCenter.y - baseCenter.y;
 
-      if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
+      const rotatedRelX = relX * cosA - relY * sinA;
+      const rotatedRelY = relX * sinA + relY * cosA;
+
+      const targetX = anchorCenter.x + rotatedRelX;
+      const targetY = anchorCenter.y + rotatedRelY;
+
+      let nearestCell: TriangleCell | null = null;
+      let minDistanceSquared = Number.POSITIVE_INFINITY;
+
+      for (const candidate of candidates) {
+        if (usedCellIds.has(candidate.id)) continue;
+
+        const candidateCenter = getTriangleCenter(candidate, triangleSize);
+        const dx = candidateCenter.x - targetX;
+        const dy = candidateCenter.y - targetY;
+        const distanceSquared = dx * dx + dy * dy;
+
+        if (distanceSquared < minDistanceSquared) {
+          minDistanceSquared = distanceSquared;
+          nearestCell = candidate;
+        }
+      }
+
+      if (!nearestCell || minDistanceSquared > snapDistanceSquared) {
         return null;
       }
 
-      if (
-        targetCell.filled &&
-        (!allowOverlapShapeId || targetCell.shapeId !== allowOverlapShapeId)
-      ) {
+      usedCellIds.add(nearestCell.id);
+      mappedTriangles.push(parseInt(nearestCell.id.replace('cell-', '')));
+    }
+
+    for (const triangleId of mappedTriangles) {
+      const targetCell = board.find(c => c.id === `cell-${triangleId}`);
+      if (!targetCell) return null;
+
+      if (targetCell.filled && (!allowOverlapShapeId || targetCell.shapeId !== allowOverlapShapeId)) {
         return null;
       }
-
-      mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
     }
 
     return mappedTriangles;
@@ -154,7 +185,8 @@ const TriangleBoard: React.FC = () => {
     // 只有当从右侧选中了一个已定义的形状时，才能放置
     if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
 
-    const mappedTriangles = getMappedTriangles(selectedShape, clickedTriangleId);
+    const rotationStep = shapeRotations[selectedShape] ?? 0;
+    const mappedTriangles = getMappedTriangles(selectedShape, clickedTriangleId, undefined, rotationStep);
     if (mappedTriangles) {
       setBoard(prevBoard =>
         prevBoard.map(cell => {
@@ -185,7 +217,8 @@ const TriangleBoard: React.FC = () => {
     if (!movingShapeId || DISABLED_CELLS.has(cellId)) return;
 
     const targetTriangleId = parseInt(cellId.replace('cell-', ''));
-    const mappedTriangles = getMappedTriangles(movingShapeId, targetTriangleId, movingShapeId);
+    const rotationStep = shapeRotations[movingShapeId] ?? 0;
+    const mappedTriangles = getMappedTriangles(movingShapeId, targetTriangleId, movingShapeId, rotationStep);
 
     if (mappedTriangles) {
       const movingId = movingShapeId;
@@ -222,6 +255,24 @@ const TriangleBoard: React.FC = () => {
   const handleShapeSelect = (shapeId: number) => {
     setSelectedShape(selectedShape === shapeId ? null : shapeId);
   };
+
+  const rotateShape = (shapeId: number) => {
+    setShapeRotations(prev => ({
+      ...prev,
+      [shapeId]: ((prev[shapeId] ?? 0) + 1) % 6,
+    }));
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if ((event.key === 'r' || event.key === 'R') && selectedShape) {
+        rotateShape(selectedShape);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedShape]);
 
   const getTriangleCoords = (cell: TriangleCell, size: number = 35): string => {
     const h = (size * Math.sqrt(3)) / 2;
@@ -274,7 +325,8 @@ const TriangleBoard: React.FC = () => {
     triangleIds: number[],
     size: number,
     canvasSize: number,
-    padding: number
+    padding: number,
+    rotationStep: number = 0
   ): string[] => {
     const shapeCells = triangleIds
       .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
@@ -289,17 +341,42 @@ const TriangleBoard: React.FC = () => {
       getPreviewTriangleCoords(cell, baseCell, size, 0, 0)
     );
 
-    const rawPoints = rawPolygons.flatMap(poly =>
+    const parsedPolygons = rawPolygons.map(poly =>
       poly.split(' ').map(p => {
         const [x, y] = p.split(',').map(Number);
         return { x, y };
       })
     );
 
-    const minX = Math.min(...rawPoints.map(p => p.x));
-    const maxX = Math.max(...rawPoints.map(p => p.x));
-    const minY = Math.min(...rawPoints.map(p => p.y));
-    const maxY = Math.max(...rawPoints.map(p => p.y));
+    const rawPoints = parsedPolygons.flat();
+    const originMinX = Math.min(...rawPoints.map(p => p.x));
+    const originMaxX = Math.max(...rawPoints.map(p => p.x));
+    const originMinY = Math.min(...rawPoints.map(p => p.y));
+    const originMaxY = Math.max(...rawPoints.map(p => p.y));
+    const rotateCenterX = (originMinX + originMaxX) / 2;
+    const rotateCenterY = (originMinY + originMaxY) / 2;
+    const angle = (((rotationStep % 6) + 6) % 6) * (Math.PI / 3);
+    const cosA = Math.cos(angle);
+    const sinA = Math.sin(angle);
+
+    const rotatedPolygons = parsedPolygons.map(points =>
+      points.map(point => {
+        if (angle === 0) return point;
+        const relX = point.x - rotateCenterX;
+        const relY = point.y - rotateCenterY;
+        return {
+          x: relX * cosA - relY * sinA + rotateCenterX,
+          y: relX * sinA + relY * cosA + rotateCenterY,
+        };
+      })
+    );
+
+    const rotatedPoints = rotatedPolygons.flat();
+
+    const minX = Math.min(...rotatedPoints.map(p => p.x));
+    const maxX = Math.max(...rotatedPoints.map(p => p.x));
+    const minY = Math.min(...rotatedPoints.map(p => p.y));
+    const maxY = Math.max(...rotatedPoints.map(p => p.y));
 
     const rawWidth = Math.max(maxX - minX, 1);
     const rawHeight = Math.max(maxY - minY, 1);
@@ -311,9 +388,8 @@ const TriangleBoard: React.FC = () => {
     const offsetX = padding + (available - fittedWidth) / 2;
     const offsetY = padding + (available - fittedHeight) / 2;
 
-    return rawPolygons.map(poly => {
-      const transformed = poly.split(' ').map(p => {
-        const [x, y] = p.split(',').map(Number);
+    return rotatedPolygons.map(points => {
+      const transformed = points.map(({ x, y }) => {
         const tx = (x - minX) * scale + offsetX;
         const ty = (y - minY) * scale + offsetY;
         return `${tx},${ty}`;
@@ -332,8 +408,6 @@ const TriangleBoard: React.FC = () => {
   const activePreviewShapeId = movingShapeId ?? selectedShape;
   const panelPreviewCanvasSize = 140;
   const carryPreviewCanvasSize = 220;
-  const carryPreviewCenterX = carryPreviewCanvasSize / 2;
-  const carryPreviewCenterY = 72;
 
   useEffect(() => {
     if (!activePreviewShapeId) {
@@ -485,7 +559,13 @@ const TriangleBoard: React.FC = () => {
               {activePreviewShapeId && hoveredTriangleId !== null && SHAPES.find(s => s.id === activePreviewShapeId) && (
                 (() => {
                   const shapeId = activePreviewShapeId;
-                  const mappedTriangles = getMappedTriangles(shapeId, hoveredTriangleId, movingShapeId ?? undefined);
+                  const rotationStep = shapeRotations[shapeId] ?? 0;
+                  const mappedTriangles = getMappedTriangles(
+                    shapeId,
+                    hoveredTriangleId,
+                    movingShapeId ?? undefined,
+                    rotationStep
+                  );
                   if (!mappedTriangles) return null;
 
                   return mappedTriangles.map(triangleId => {
@@ -536,7 +616,13 @@ const TriangleBoard: React.FC = () => {
                   type="button"
                   className={`shape-card ${isSelected ? 'selected' : ''}`}
                   onClick={() => handleShapeSelect(idx + 1)}
+                  onContextMenu={event => {
+                    event.preventDefault();
+                    rotateShape(idx + 1);
+                  }}
+                  title="左键选中，右键旋转，R 键旋转当前选中图形"
                 >
+                  <span className="shape-rotation-label">{((shapeRotations[idx + 1] ?? 0) * 60) % 360}deg</span>
                   <svg
                     width={panelPreviewCanvasSize}
                     height={panelPreviewCanvasSize}
@@ -545,7 +631,13 @@ const TriangleBoard: React.FC = () => {
                   >
                     {shape ? (
                       <>
-                        {getFittedPreviewPolygons(shape.triangles, panelPreviewTriangleSize, panelPreviewCanvasSize, 10).map(
+                        {getFittedPreviewPolygons(
+                          shape.triangles,
+                          panelPreviewTriangleSize,
+                          panelPreviewCanvasSize,
+                          10,
+                          shapeRotations[shape.id] ?? 0
+                        ).map(
                           (points, polygonIndex) => {
                             const color = SHAPE_COLORS[idx];
                             return (
@@ -599,25 +691,17 @@ const TriangleBoard: React.FC = () => {
               const shape = SHAPES.find(s => s.id === activePreviewShapeId);
               if (!shape) return null;
 
-              const shapeCells = shape.triangles
-                .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
-                .filter((cell): cell is TriangleCell => Boolean(cell));
-
-              if (shapeCells.length !== shape.triangles.length) {
-                return null;
-              }
-
-              const baseCell = shapeCells[0];
-              return shapeCells.map(cell => (
+              const rotationStep = shapeRotations[shape.id] ?? 0;
+              return getFittedPreviewPolygons(
+                shape.triangles,
+                triangleSize,
+                carryPreviewCanvasSize,
+                8,
+                rotationStep
+              ).map((points, polygonIndex) => (
                 <polygon
-                  key={`cursor-preview-${cell.id}`}
-                  points={getPreviewTriangleCoords(
-                    cell,
-                    baseCell,
-                    triangleSize,
-                    carryPreviewCenterX,
-                    carryPreviewCenterY
-                  )}
+                  key={`cursor-preview-${shape.id}-${polygonIndex}`}
+                  points={points}
                   fill={SHAPE_COLORS[activePreviewShapeId - 1]}
                   stroke={SHAPE_COLORS[activePreviewShapeId - 1]}
                   strokeWidth="1.5"
