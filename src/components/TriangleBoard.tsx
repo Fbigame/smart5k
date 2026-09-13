@@ -66,6 +66,7 @@ const TriangleBoard: React.FC = () => {
   const [snappedTriangles, setSnappedTriangles] = useState<number[] | null>(null);
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
   const [draggingShape, setDraggingShape] = useState(false);
+  const [hadDragPreview, setHadDragPreview] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [panelPointerShapeId, setPanelPointerShapeId] = useState<number | null>(null);
   const [draggingFromPanel, setDraggingFromPanel] = useState(false);
@@ -240,6 +241,7 @@ const TriangleBoard: React.FC = () => {
 
   const handleCellPointerDown = (event: React.PointerEvent<SVGPolygonElement>, cellId: string) => {
     setShapeActionMenu(null);
+    setHadDragPreview(false);
     setDragStartPoint({ x: event.clientX, y: event.clientY });
     handleCellMouseDown(cellId);
   };
@@ -305,16 +307,17 @@ const TriangleBoard: React.FC = () => {
       : 0;
     const hasPointerMoved = movedSincePointerDown > 9;
 
-    if (!draggingShape && hasPointerMoved) {
+    if (!draggingShape && hasPointerMoved && hadDragPreview) {
       setMovingShapeId(null);
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
       setDraggingShape(false);
+      setHadDragPreview(false);
       setDragStartPoint(null);
       return;
     }
 
-    if (!draggingShape && cell.shapeIds.includes(movingShapeId)) {
+    if (!draggingShape && !hadDragPreview && cell.shapeIds.includes(movingShapeId)) {
       setShapeActionMenu({
         shapeId: movingShapeId,
         x: event.clientX,
@@ -326,6 +329,7 @@ const TriangleBoard: React.FC = () => {
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
       setDraggingShape(false);
+      setHadDragPreview(false);
       setDragStartPoint(null);
       return;
     }
@@ -369,6 +373,7 @@ const TriangleBoard: React.FC = () => {
     setHoveredTriangleId(null);
     setSnappedTriangles(null);
     setDraggingShape(false);
+    setHadDragPreview(false);
     setDragStartPoint(null);
     setShapeActionMenu(null);
   };
@@ -585,6 +590,7 @@ const TriangleBoard: React.FC = () => {
     setHoveredTriangleId(null);
     setSnappedTriangles(null);
     setDraggingShape(false);
+    setHadDragPreview(false);
     setDragStartPoint(null);
   };
 
@@ -927,6 +933,10 @@ const TriangleBoard: React.FC = () => {
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
       return;
+    }
+
+    if (movingShapeId) {
+      setHadDragPreview(true);
     }
 
     if (!snappedTriangles) {
