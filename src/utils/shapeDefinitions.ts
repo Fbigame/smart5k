@@ -17,12 +17,12 @@ export interface ShapeDefinition {
  * 所有12个道具的定义
  */
 export const SHAPES: ShapeDefinition[] = [
-  {
-    id: 1,
-    name: 'Hexagon',
+  ...Array.from({ length: 12 }, (_, index) => ({
+    id: index + 1,
+    name: `Hexagon ${index + 1}`,
     description: '正六边形',
     triangles: [59, 60, 61, 75, 76, 77],
-  },
+  })),
 ];
 
 /**
