@@ -1302,21 +1302,30 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                           shapeRotations[shape.id] ?? 0,
                           false,
                           shapeFlips[shape.id] ?? false
-                        ).map(
-                          (points, polygonIndex) => {
-                            const color = SHAPE_COLORS[idx];
-                            return (
-                              <g key={`${shape.id}-${polygonIndex}`} filter={`url(#shape-outline-${shape.id})`}>
+                        ).length > 0 && (
+                          <g filter={`url(#shape-outline-${shape.id})`}>
+                            {getFittedPreviewPolygons(
+                              shape.triangles,
+                              panelPreviewTriangleSize,
+                              panelPreviewCanvasSize,
+                              10,
+                              shapeRotations[shape.id] ?? 0,
+                              false,
+                              shapeFlips[shape.id] ?? false
+                            ).map((points, polygonIndex) => {
+                              const color = SHAPE_COLORS[idx];
+                              return (
                                 <polygon
+                                  key={`${shape.id}-${polygonIndex}`}
                                   points={expandTrianglePoints(points, 0.45)}
                                   fill={color}
                                   stroke="none"
                                   strokeWidth="0"
                                   opacity="0.95"
                                 />
-                              </g>
-                            );
-                          }
+                              );
+                            })}
+                          </g>
                         )}
                       </>
                     ) : null}
