@@ -1,10 +1,10 @@
-import GameBoard from './components/GameBoard'
+import TriangleBoard from './components/TriangleBoard'
 import './App.css'
 
 function App() {
   return (
     <>
-      <GameBoard />
+      <TriangleBoard />
     </>
   )
 }
