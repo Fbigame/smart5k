@@ -300,6 +300,20 @@ const TriangleBoard: React.FC = () => {
     const cell = board.find(c => c.id === cellId);
     if (!cell) return;
 
+    const movedSincePointerDown = dragStartPoint
+      ? (event.clientX - dragStartPoint.x) ** 2 + (event.clientY - dragStartPoint.y) ** 2
+      : 0;
+    const hasPointerMoved = movedSincePointerDown > 9;
+
+    if (!draggingShape && hasPointerMoved) {
+      setMovingShapeId(null);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
+      setDraggingShape(false);
+      setDragStartPoint(null);
+      return;
+    }
+
     if (!draggingShape && cell.shapeIds.includes(movingShapeId)) {
       setShapeActionMenu({
         shapeId: movingShapeId,
