@@ -336,7 +336,7 @@ const TriangleBoard: React.FC = () => {
   const displayHeight = Math.min(svgHeight, 900);
 
   return (
-    <div className="game-container">
+    <div className="game-container triangle-game-container">
       <div className="game-header">
         <h1>Triangle Fill Game</h1>
         <div className="stats">
@@ -453,8 +453,8 @@ const TriangleBoard: React.FC = () => {
 
         {/* 右侧：形状选择与预览 */}
         <div className="shape-section">
+          <h2 className="shape-title">Shapes</h2>
           <div className="shapes-grid">
-            <h2 style={{ gridColumn: '1 / -1', marginBottom: '10px' }}>Shapes</h2>
             {/* 显示12个形状的预览网格 */}
             {Array.from({ length: 12 }).map((_, idx) => {
               const shape = SHAPES.find(s => s.id === idx + 1);
@@ -472,71 +472,66 @@ const TriangleBoard: React.FC = () => {
               }
               
               return (
-                <svg
+                <button
                   key={idx + 1}
-                  width="160"
-                  height="180"
-                  viewBox="0 0 200 250"
-                  preserveAspectRatio="xMidYMid meet"
+                  type="button"
+                  className={`shape-card ${isSelected ? 'selected' : ''}`}
                   onClick={() => handleShapeSelect(idx + 1)}
-                  style={{
-                    cursor: 'pointer',
-                    filter: isSelected ? `drop-shadow(0 0 8px ${SHAPE_COLORS[idx]})` : 'none',
-                    transition: 'all 0.2s ease',
-                  }}
                 >
-                  {shape ? (
-                    <>
-                      {(() => {
-                        const shapeTriangleIds = shape.triangles;
-                        const baseCell = board.find(c => c.id === `cell-${shapeTriangleIds[0]}`);
-                        if (!baseCell) return null;
-                        
-                        return board
-                          .filter(cell => shapeTriangleIds.includes(parseInt(cell.id.replace('cell-', ''))))
-                          .map(cell => {
-                            const color = SHAPE_COLORS[idx];
-                            return (
-                              <polygon
-                                key={cell.id}
-                                points={getPreviewTriangleCoords(cell, baseCell, 75, 100, 95)}
-                                fill={color}
-                                stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
-                                strokeWidth={isSelected ? "2" : "1"}
-                                opacity="0.95"
-                              />
-                            );
-                          });
-                      })()}
-                    </>
-                  ) : null}
-                </svg>
+                  <svg width="120" height="120" viewBox="0 0 200 250" preserveAspectRatio="xMidYMid meet">
+                    {shape ? (
+                      <>
+                        {(() => {
+                          const shapeTriangleIds = shape.triangles;
+                          const baseCell = board.find(c => c.id === `cell-${shapeTriangleIds[0]}`);
+                          if (!baseCell) return null;
+
+                          return board
+                            .filter(cell => shapeTriangleIds.includes(parseInt(cell.id.replace('cell-', ''))))
+                            .map(cell => {
+                              const color = SHAPE_COLORS[idx];
+                              return (
+                                <polygon
+                                  key={cell.id}
+                                  points={getPreviewTriangleCoords(cell, baseCell, 75, 100, 95)}
+                                  fill={color}
+                                  stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
+                                  strokeWidth={isSelected ? '2' : '1'}
+                                  opacity="0.95"
+                                />
+                              );
+                            });
+                        })()}
+                      </>
+                    ) : null}
+                  </svg>
+                </button>
               );
             })}
           </div>
-          <button className="btn btn-primary shape-clear-btn" onClick={() => {
-            setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
-            setSelectedShape(null);
-            setMovingShapeId(null);
-            setHoveredTriangleId(null);
-          }}>
-            Clear Board
-          </button>
         </div>
       </div>
 
       <div className="game-footer">
+        <button className="btn btn-primary" onClick={() => {
+          setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
+          setSelectedShape(null);
+          setMovingShapeId(null);
+          setHoveredTriangleId(null);
+        }}>
+          Clear Board
+        </button>
       </div>
 
       {activePreviewShapeId && cursorPosition && (
         <div
           className="floating-shape-preview"
           style={{
-            left: cursorPosition.x + 16,
-            top: cursorPosition.y + 16,
+            left: cursorPosition.x,
+            top: cursorPosition.y,
           }}
         >
-          <svg width="120" height="120" viewBox="0 0 120 120" preserveAspectRatio="xMidYMid meet">
+          <svg width="132" height="132" viewBox="0 0 132 132" preserveAspectRatio="xMidYMid meet">
             {(() => {
               const shape = SHAPES.find(s => s.id === activePreviewShapeId);
               if (!shape) return null;
@@ -553,7 +548,7 @@ const TriangleBoard: React.FC = () => {
               return shapeCells.map(cell => (
                 <polygon
                   key={`cursor-preview-${cell.id}`}
-                  points={getPreviewTriangleCoords(cell, baseCell, 30, 60, 38)}
+                  points={getPreviewTriangleCoords(cell, baseCell, 28, 66, 66)}
                   fill={SHAPE_COLORS[activePreviewShapeId - 1]}
                   stroke={SHAPE_COLORS[activePreviewShapeId - 1]}
                   strokeWidth="1.5"
