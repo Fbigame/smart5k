@@ -11,6 +11,7 @@ interface TriangleCell {
   direction: 'UP' | 'DOWN';
   filled: boolean;
   shapeId?: number;
+  shapeIds: number[];
 }
 
 const SHAPE_COLORS = [
@@ -33,6 +34,7 @@ function createTriangleBoard(rows: number = 9): TriangleCell[] {
         col: c,
         direction: dir as 'UP' | 'DOWN',
         filled: false,
+        shapeIds: [],
       });
       id++;
     }
@@ -61,11 +63,7 @@ const TriangleBoard: React.FC = () => {
 
   // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
   const placedShapes = useMemo(() => {
-    return new Set(
-      board
-        .filter(cell => cell.filled && cell.shapeId !== undefined)
-        .map(cell => cell.shapeId as number)
-    );
+    return new Set(board.flatMap(cell => cell.shapeIds));
   }, [board]);
 
   useEffect(() => {
@@ -82,7 +80,7 @@ const TriangleBoard: React.FC = () => {
     if (allowed.length > 0 && allowed.every(cell => cell.filled)) {
       alert(`🎉 Level ${level} Complete!`);
       setLevel(level + 1);
-      setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
+      setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
       setMovingShapeId(null);
       setSelectedShape(null);
     }
@@ -161,8 +159,9 @@ const TriangleBoard: React.FC = () => {
       const targetCell = board.find(c => c.id === `cell-${triangleId}`);
       if (!targetCell) return null;
 
-      if (targetCell.filled && (!allowOverlapShapeId || targetCell.shapeId !== allowOverlapShapeId)) {
-        return null;
+      if (allowOverlapShapeId) {
+        // 移动时仍允许与其他形状重叠，因此这里不拦截。
+        void allowOverlapShapeId;
       }
     }
 
@@ -178,10 +177,6 @@ const TriangleBoard: React.FC = () => {
 
     const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
 
-    if (clickedCell.filled) {
-      return;
-    }
-
     // 只有当从右侧选中了一个已定义的形状时，才能放置
     if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
 
@@ -191,9 +186,18 @@ const TriangleBoard: React.FC = () => {
       setBoard(prevBoard =>
         prevBoard.map(cell => {
           const id = parseInt(cell.id.replace('cell-', ''));
-          return mappedTriangles.includes(id)
-            ? { ...cell, filled: true, shapeId: selectedShape }
-            : cell;
+          if (!mappedTriangles.includes(id)) return cell;
+
+          const nextShapeIds = cell.shapeIds.includes(selectedShape)
+            ? cell.shapeIds
+            : [...cell.shapeIds, selectedShape];
+
+          return {
+            ...cell,
+            shapeIds: nextShapeIds,
+            filled: nextShapeIds.length > 0,
+            shapeId: nextShapeIds[nextShapeIds.length - 1],
+          };
         })
       );
       // 放置成功后，清除选择
@@ -225,15 +229,19 @@ const TriangleBoard: React.FC = () => {
       setBoard(prevBoard =>
         prevBoard.map(cell => {
           const id = parseInt(cell.id.replace('cell-', ''));
-          if (cell.shapeId === movingId && !mappedTriangles.includes(id)) {
-            return { ...cell, filled: false, shapeId: undefined };
-          }
+          let nextShapeIds = cell.shapeIds.filter(shapeId => shapeId !== movingId);
 
           if (mappedTriangles.includes(id)) {
-            return { ...cell, filled: true, shapeId: movingId };
+            nextShapeIds = [...nextShapeIds, movingId];
           }
 
-          return cell;
+          const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
+          return {
+            ...cell,
+            shapeIds: nextShapeIds,
+            filled: nextShapeIds.length > 0,
+            shapeId: nextTopShapeId,
+          };
         })
       );
     }
@@ -492,6 +500,7 @@ const TriangleBoard: React.FC = () => {
             >
               {board.map(cell => {
                 const isDisabled = DISABLED_CELLS.has(cell.id);
+                const topShapeId = cell.shapeIds.length > 0 ? cell.shapeIds[cell.shapeIds.length - 1] : undefined;
                 let fill: string;
                 let stroke: string;
 
@@ -499,9 +508,9 @@ const TriangleBoard: React.FC = () => {
                   // 禁用的三角形完全透明
                   fill = 'transparent';
                   stroke = 'transparent';
-                } else if (cell.filled) {
-                  fill = SHAPE_COLORS[cell.shapeId ? cell.shapeId - 1 : 0];
-                  stroke = '#ddd';
+                } else if (cell.shapeIds.length > 0) {
+                  fill = SHAPE_COLORS[topShapeId ? topShapeId - 1 : 0];
+                  stroke = cell.shapeIds.length > 1 ? '#ff9f1c' : '#ddd';
                 } else {
                   fill = '#fff';
                   stroke = '#999';
@@ -530,7 +539,7 @@ const TriangleBoard: React.FC = () => {
                           ? 'default'
                           : movingShapeId
                           ? 'grabbing'
-                          : cell.filled
+                          : cell.shapeIds.length > 0
                           ? 'grab'
                           : selectedShape
                           ? 'pointer'
@@ -664,7 +673,7 @@ const TriangleBoard: React.FC = () => {
 
       <div className="game-footer">
         <button className="btn btn-primary" onClick={() => {
-          setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
+          setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
           setSelectedShape(null);
           setMovingShapeId(null);
           setHoveredTriangleId(null);
