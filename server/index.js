@@ -101,9 +101,11 @@ async function writeStore(store) {
 }
 
 function getStats(store) {
+  const totalSolutions = Array.isArray(store.solutions) ? store.solutions.length : 0;
   return {
     totalClears: Number(store.totalClears) || 0,
-    uniqueSolutions: Array.isArray(store.solutions) ? store.solutions.length : 0,
+    uniqueSolutions: totalSolutions,
+    totalSolutions,
   };
 }
 
@@ -111,7 +113,7 @@ function listSolutions(store) {
   const solutions = Array.isArray(store.solutions) ? store.solutions : [];
   return solutions
     .slice()
-    .sort((a, b) => b.solvers - a.solvers || a.firstSolvedAt.localeCompare(b.firstSolvedAt))
+    .sort((a, b) => a.firstSolvedAt.localeCompare(b.firstSolvedAt) || b.solvers - a.solvers)
     .map(item => ({
       hash: item.hash,
       level: item.level,
@@ -133,9 +135,26 @@ app.get('/api/stats', async (_req, res) => {
 app.get('/api/solutions', async (_req, res) => {
   try {
     const store = await readStore();
+    const pageRaw = Number(_req.query.page);
+    const pageSizeRaw = Number(_req.query.pageSize);
+    const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
+    const pageSize = Number.isFinite(pageSizeRaw)
+      ? Math.min(Math.max(Math.floor(pageSizeRaw), 1), 50)
+      : 12;
+    const allSolutions = listSolutions(store);
+    const total = allSolutions.length;
+    const totalPages = Math.max(Math.ceil(total / pageSize), 1);
+    const safePage = Math.min(page, totalPages);
+    const start = (safePage - 1) * pageSize;
+    const solutions = allSolutions.slice(start, start + pageSize);
+
     res.json({
       totalPeople: Number(store.totalClears) || 0,
-      solutions: listSolutions(store),
+      total,
+      page: safePage,
+      pageSize,
+      totalPages,
+      solutions,
     });
   } catch {
     res.status(500).json({ error: 'Failed to load solutions' });

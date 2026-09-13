@@ -3,8 +3,7 @@ import TriangleBoard, { type LevelClearRecord } from './components/TriangleBoard
 import './App.css'
 
 interface ClearStats {
-  totalClears: number
-  uniqueSolutions: number
+  totalSolutions: number
 }
 
 interface SolutionSummary {
@@ -16,7 +15,10 @@ interface SolutionSummary {
 }
 
 interface SolutionsResponse {
-  totalPeople: number
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
   solutions: SolutionSummary[]
 }
 
@@ -24,18 +26,21 @@ const API_BASE = '/api'
 
 function App() {
   const [started, setStarted] = useState(false)
-  const [stats, setStats] = useState<ClearStats>({ totalClears: 0, uniqueSolutions: 0 })
+  const [stats, setStats] = useState<ClearStats>({ totalSolutions: 0 })
   const [solutions, setSolutions] = useState<SolutionSummary[]>([])
-  const [totalPeople, setTotalPeople] = useState(0)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalSolutions, setTotalSolutions] = useState(0)
   const [showSolutions, setShowSolutions] = useState(false)
   const [loading, setLoading] = useState(true)
+  const pageSize = 9
 
   const loadStats = useCallback(async () => {
     try {
       const response = await fetch(`${API_BASE}/stats`)
       if (!response.ok) return
       const data = (await response.json()) as ClearStats
-      setStats(data)
+      setStats({ totalSolutions: data.totalSolutions ?? 0 })
     } catch {
       // Ignore transient API errors and keep UI usable.
     } finally {
@@ -43,21 +48,23 @@ function App() {
     }
   }, [])
 
-  const loadSolutions = useCallback(async () => {
+  const loadSolutions = useCallback(async (page: number) => {
     try {
-      const response = await fetch(`${API_BASE}/solutions`)
+      const response = await fetch(`${API_BASE}/solutions?page=${page}&pageSize=${pageSize}`)
       if (!response.ok) return
       const data = (await response.json()) as SolutionsResponse
       setSolutions(Array.isArray(data.solutions) ? data.solutions : [])
-      setTotalPeople(typeof data.totalPeople === 'number' ? data.totalPeople : 0)
+      setCurrentPage(typeof data.page === 'number' ? data.page : page)
+      setTotalPages(typeof data.totalPages === 'number' ? data.totalPages : 1)
+      setTotalSolutions(typeof data.total === 'number' ? data.total : 0)
     } catch {
       // Ignore transient API errors and keep UI usable.
     }
-  }, [])
+  }, [pageSize])
 
   useEffect(() => {
     void loadStats()
-    void loadSolutions()
+    void loadSolutions(1)
   }, [loadStats, loadSolutions])
 
   const handleLevelCleared = useCallback(async (record: LevelClearRecord) => {
@@ -76,16 +83,16 @@ function App() {
 
       const data = (await response.json()) as { stats?: ClearStats }
       if (data.stats) {
-        setStats(data.stats)
+        setStats({ totalSolutions: data.stats.totalSolutions ?? 0 })
       } else {
         await loadStats()
       }
-      await loadSolutions()
+      await loadSolutions(currentPage)
     } catch {
       await loadStats()
-      await loadSolutions()
+      await loadSolutions(currentPage)
     }
-  }, [loadStats, loadSolutions])
+  }, [loadStats, loadSolutions, currentPage])
 
   const formatTime = (iso: string) => {
     const d = new Date(iso)
@@ -103,18 +110,23 @@ function App() {
         </div>
         <div className="lobby-stats">
           <div className="stat-item">
-            <span>总通关次数</span>
-            <strong>{loading ? '...' : stats.totalClears}</strong>
-          </div>
-          <div className="stat-item">
-            <span>唯一解法</span>
-            <strong>{loading ? '...' : stats.uniqueSolutions}</strong>
+            <span>总解法数量</span>
+            <strong>{loading ? '...' : stats.totalSolutions}</strong>
           </div>
         </div>
         <button type="button" className="start-btn" onClick={() => setStarted(true)}>
           {started ? '继续游戏' : '开始游戏'}
         </button>
-        <button type="button" className="ghost-btn" onClick={() => setShowSolutions(prev => !prev)}>
+        <button
+          type="button"
+          className="ghost-btn"
+          onClick={() => {
+            setShowSolutions(prev => !prev)
+            if (!showSolutions) {
+              void loadSolutions(1)
+            }
+          }}
+        >
           {showSolutions ? '收起解法' : '查看解法'}
         </button>
       </section>
@@ -122,8 +134,8 @@ function App() {
       {showSolutions && (
         <section className="solutions-card">
           <div className="solutions-head">
-            <h2>解法排行榜</h2>
-            <p>累计参与人数：{totalPeople}</p>
+            <h2>解法列表（按首次通关）</h2>
+            <p>共 {totalSolutions} 条</p>
           </div>
           {solutions.length === 0 ? (
             <p className="empty-tip">还没有解法记录，快成为第一个通关者。</p>
@@ -136,11 +148,29 @@ function App() {
                   <p><strong>关卡：</strong>{item.level}</p>
                   <p><strong>总人数：</strong>{item.solvers}</p>
                   <p><strong>首次解出：</strong>{formatTime(item.firstSolvedAt)}</p>
-                  <p><strong>最近一次：</strong>{formatTime(item.lastSolvedAt)}</p>
                 </article>
               ))}
             </div>
           )}
+          <div className="pagination-bar">
+            <button
+              type="button"
+              className="page-btn"
+              disabled={currentPage <= 1}
+              onClick={() => void loadSolutions(currentPage - 1)}
+            >
+              上一页
+            </button>
+            <span>第 {currentPage} / {totalPages} 页</span>
+            <button
+              type="button"
+              className="page-btn"
+              disabled={currentPage >= totalPages}
+              onClick={() => void loadSolutions(currentPage + 1)}
+            >
+              下一页
+            </button>
+          </div>
         </section>
       )}
 
