@@ -334,7 +334,8 @@ const TriangleBoard: React.FC = () => {
     size: number,
     canvasSize: number,
     padding: number,
-    rotationStep: number = 0
+    rotationStep: number = 0,
+    allowUpscale: boolean = true
   ): string[] => {
     const shapeCells = triangleIds
       .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
@@ -389,7 +390,8 @@ const TriangleBoard: React.FC = () => {
     const rawWidth = Math.max(maxX - minX, 1);
     const rawHeight = Math.max(maxY - minY, 1);
     const available = Math.max(canvasSize - padding * 2, 1);
-    const scale = Math.min(available / rawWidth, available / rawHeight);
+    const fitScale = Math.min(available / rawWidth, available / rawHeight);
+    const scale = allowUpscale ? fitScale : Math.min(fitScale, 1);
 
     const fittedWidth = rawWidth * scale;
     const fittedHeight = rawHeight * scale;
@@ -706,7 +708,8 @@ const TriangleBoard: React.FC = () => {
                 triangleSize,
                 carryPreviewCanvasSize,
                 8,
-                rotationStep
+                rotationStep,
+                false
               ).map((points, polygonIndex) => (
                 <polygon
                   key={`cursor-preview-${shape.id}-${polygonIndex}`}
