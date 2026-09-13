@@ -62,6 +62,7 @@ const TriangleBoard: React.FC = () => {
   const [panelPointerShapeId, setPanelPointerShapeId] = useState<number | null>(null);
   const [draggingFromPanel, setDraggingFromPanel] = useState(false);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
+  const [shapeFlips, setShapeFlips] = useState<Record<number, boolean>>({});
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
@@ -96,7 +97,8 @@ const TriangleBoard: React.FC = () => {
     shapeId: number,
     anchorTriangleId: number,
     allowOverlapShapeId?: number,
-    rotationStep: number = 0
+    rotationStep: number = 0,
+    flipped: boolean = false
   ): number[] | null => {
     const shape = SHAPES.find(s => s.id === shapeId);
     if (!shape || shape.triangles.length === 0) return null;
@@ -127,8 +129,12 @@ const TriangleBoard: React.FC = () => {
 
     for (const sourceCell of sourceCells) {
       const sourceCenter = getTriangleCenter(sourceCell, triangleSize);
-      const relX = sourceCenter.x - baseCenter.x;
+      let relX = sourceCenter.x - baseCenter.x;
       const relY = sourceCenter.y - baseCenter.y;
+
+      if (flipped) {
+        relX = -relX;
+      }
 
       const rotatedRelX = relX * cosA - relY * sinA;
       const rotatedRelY = relX * sinA + relY * cosA;
@@ -212,17 +218,20 @@ const TriangleBoard: React.FC = () => {
       if (!cell) return;
 
       const rotationStep = shapeRotations[selectedShape] ?? 0;
+      const flipped = shapeFlips[selectedShape] ?? false;
       const clickedCenter = getTriangleCenter(cell, triangleSize);
       const bestSnap = findBestSnapPlacement(
         selectedShape,
         clickedCenter.x,
         clickedCenter.y,
-        rotationStep
+        rotationStep,
+        undefined,
+        flipped
       );
       const mappedTriangles =
         snappedTriangles ??
         bestSnap?.mappedTriangles ??
-        getMappedTriangles(selectedShape, parseInt(cellId.replace('cell-', '')), undefined, rotationStep);
+        getMappedTriangles(selectedShape, parseInt(cellId.replace('cell-', '')), undefined, rotationStep, flipped);
 
       if (mappedTriangles) {
         setBoard(prevBoard =>
@@ -269,15 +278,17 @@ const TriangleBoard: React.FC = () => {
     }
 
     const rotationStep = shapeRotations[movingShapeId] ?? 0;
+    const flipped = shapeFlips[movingShapeId] ?? false;
     const clickedCenter = getTriangleCenter(cell, triangleSize);
     const bestSnap = findBestSnapPlacement(
       movingShapeId,
       clickedCenter.x,
       clickedCenter.y,
       rotationStep,
-      movingShapeId
+      movingShapeId,
+      flipped
     );
-    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, parseInt(cellId.replace('cell-', '')), movingShapeId, rotationStep);
+    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, parseInt(cellId.replace('cell-', '')), movingShapeId, rotationStep, flipped);
 
     if (mappedTriangles) {
       const movingId = movingShapeId;
@@ -333,13 +344,15 @@ const TriangleBoard: React.FC = () => {
     if (!anchorCell) return;
 
     const nextRotation = ((shapeRotations[shapeId] ?? 0) + 1) % 6;
+    const flipped = shapeFlips[shapeId] ?? false;
     const anchorCenter = getTriangleCenter(anchorCell, triangleSize);
     const bestSnap = findBestSnapPlacement(
       shapeId,
       anchorCenter.x,
       anchorCenter.y,
       nextRotation,
-      shapeId
+      shapeId,
+      flipped
     );
 
     if (!bestSnap?.mappedTriangles) return;
@@ -411,7 +424,8 @@ const TriangleBoard: React.FC = () => {
     const mouseX = ((clientX - rect.left) / rect.width) * svgWidth;
     const mouseY = ((clientY - rect.top) / rect.height) * svgHeight;
     const rotationStep = shapeRotations[selectedShape] ?? 0;
-    const bestSnap = findBestSnapPlacement(selectedShape, mouseX, mouseY, rotationStep);
+    const flipped = shapeFlips[selectedShape] ?? false;
+    const bestSnap = findBestSnapPlacement(selectedShape, mouseX, mouseY, rotationStep, undefined, flipped);
     const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles;
     if (!mappedTriangles) return false;
 
@@ -440,6 +454,14 @@ const TriangleBoard: React.FC = () => {
     setShapeRotations(prev => ({
       ...prev,
       [shapeId]: ((prev[shapeId] ?? 0) + 1) % 6,
+    }));
+    setSnappedTriangles(null);
+  };
+
+  const flipShape = (shapeId: number) => {
+    setShapeFlips(prev => ({
+      ...prev,
+      [shapeId]: !prev[shapeId],
     }));
     setSnappedTriangles(null);
   };
@@ -542,7 +564,8 @@ const TriangleBoard: React.FC = () => {
     canvasSize: number,
     padding: number,
     rotationStep: number = 0,
-    allowUpscale: boolean = true
+    allowUpscale: boolean = true,
+    flipped: boolean = false
   ): string[] => {
     const shapeCells = triangleIds
       .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
@@ -577,8 +600,9 @@ const TriangleBoard: React.FC = () => {
 
     const rotatedPolygons = parsedPolygons.map(points =>
       points.map(point => {
-        if (angle === 0) return point;
-        const relX = point.x - rotateCenterX;
+        const flippedX = flipped ? 2 * rotateCenterX - point.x : point.x;
+        if (angle === 0) return { x: flippedX, y: point.y };
+        const relX = flippedX - rotateCenterX;
         const relY = point.y - rotateCenterY;
         return {
           x: relX * cosA - relY * sinA + rotateCenterX,
@@ -699,7 +723,8 @@ const TriangleBoard: React.FC = () => {
     mouseX: number,
     mouseY: number,
     rotationStep: number,
-    allowOverlapShapeId?: number
+    allowOverlapShapeId?: number,
+    flipped: boolean = false
   ): { anchorId: number; mappedTriangles: number[]; score: number } | null => {
     if (cellCenters.length === 0) return null;
 
@@ -707,7 +732,7 @@ const TriangleBoard: React.FC = () => {
     let bestScore = Number.POSITIVE_INFINITY;
 
     for (const anchor of cellCenters) {
-      const mappedTriangles = getMappedTriangles(shapeId, anchor.id, allowOverlapShapeId, rotationStep);
+      const mappedTriangles = getMappedTriangles(shapeId, anchor.id, allowOverlapShapeId, rotationStep, flipped);
       if (!mappedTriangles || mappedTriangles.length === 0) continue;
 
       let sumX = 0;
@@ -779,12 +804,14 @@ const TriangleBoard: React.FC = () => {
     const mouseY = ((event.clientY - rect.top) / rect.height) * svgHeight;
 
     const rotationStep = shapeRotations[activePreviewShapeId] ?? 0;
+    const flipped = shapeFlips[activePreviewShapeId] ?? false;
     const bestSnap = findBestSnapPlacement(
       activePreviewShapeId,
       mouseX,
       mouseY,
       rotationStep,
-      movingShapeId ?? undefined
+      movingShapeId ?? undefined,
+      flipped
     );
 
     if (!bestSnap) {
@@ -953,10 +980,26 @@ const TriangleBoard: React.FC = () => {
                   onPointerUp={() => handleShapeCardPointerUp(idx + 1)}
                   onContextMenu={event => {
                     event.preventDefault();
-                    rotateShape(idx + 1);
+                    flipShape(idx + 1);
                   }}
-                  title="左键选中，再次点击旋转；右键也可旋转"
+                  title="点击旋转，Flip 按钮/右键翻转"
                 >
+                  <button
+                    type="button"
+                    className="shape-flip-btn"
+                    onPointerDown={event => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }}
+                    onClick={event => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      flipShape(idx + 1);
+                    }}
+                    aria-label={`Flip shape ${idx + 1}`}
+                  >
+                    Flip
+                  </button>
                   <svg
                     width={panelPreviewCanvasSize}
                     height={panelPreviewCanvasSize}
@@ -970,7 +1013,9 @@ const TriangleBoard: React.FC = () => {
                           panelPreviewTriangleSize,
                           panelPreviewCanvasSize,
                           10,
-                          shapeRotations[shape.id] ?? 0
+                          shapeRotations[shape.id] ?? 0,
+                          true,
+                          shapeFlips[shape.id] ?? false
                         ).map(
                           (points, polygonIndex) => {
                             const color = SHAPE_COLORS[idx];
@@ -1027,13 +1072,15 @@ const TriangleBoard: React.FC = () => {
               if (!shape) return null;
 
               const rotationStep = shapeRotations[shape.id] ?? 0;
+              const flipped = shapeFlips[shape.id] ?? false;
               return getFittedPreviewPolygons(
                 shape.triangles,
                 triangleSize,
                 carryPreviewCanvasSize,
                 8,
                 rotationStep,
-                false
+                false,
+                flipped
               ).map((points, polygonIndex) => (
                 <polygon
                   key={`cursor-preview-${shape.id}-${polygonIndex}`}

@@ -110,6 +110,24 @@
   height: auto;
 }
 
+.triangle-game-container .shape-flip-btn {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  border: 0;
+  border-radius: 10px;
+  padding: 2px 8px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  cursor: pointer;
+}
+
+.triangle-game-container .shape-flip-btn:active {
+  transform: scale(0.96);
+}
+
 .floating-shape-preview {
   position: fixed;
   pointer-events: none;
