@@ -22,7 +22,7 @@ export const SHAPES: ShapeDefinition[] = [
     id: 1,
     name: 'Hexagon',
     description: '正六边形',
-    triangles: [0, 1, 2, 3, 4, 5],
+    triangles: [59, 60, 61, 75, 76, 77],
     rotations: 5,
   },
   
