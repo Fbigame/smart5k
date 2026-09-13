@@ -40,6 +40,13 @@ interface SolutionsResponse {
   solutions: SolutionSummary[]
 }
 
+interface ClearResponse {
+  stats?: ClearStats
+  solution?: {
+    hash: string
+  } | null
+}
+
 const API_BASE = '/api'
 const FIRST_PLAY_GUIDE_SEEN_KEY = 'smart5k-first-play-guide-seen'
 const SHAPE_COLORS = [
@@ -206,6 +213,27 @@ function App() {
     }
   }, [])
 
+  const findSolutionPageByHash = useCallback(async (hash: string) => {
+    let page = 1
+    let totalPagesToScan = 1
+
+    while (page <= totalPagesToScan) {
+      const response = await fetch(`${API_BASE}/solutions?page=${page}&pageSize=${pageSize}`)
+      if (!response.ok) return null
+
+      const data = (await response.json()) as SolutionsResponse
+      const list = Array.isArray(data.solutions) ? data.solutions : []
+      if (list.some(item => item.hash === hash)) {
+        return typeof data.page === 'number' ? data.page : page
+      }
+
+      totalPagesToScan = typeof data.totalPages === 'number' ? data.totalPages : page
+      page += 1
+    }
+
+    return null
+  }, [pageSize])
+
   useEffect(() => {
     void loadStats()
     void loadSolutions(1)
@@ -234,18 +262,33 @@ function App() {
         return
       }
 
-      const data = (await response.json()) as { stats?: ClearStats }
+      const data = (await response.json()) as ClearResponse
       if (data.stats) {
         setStats({ totalSolutions: data.stats.totalSolutions ?? 0 })
       } else {
         await loadStats()
       }
-      await loadSolutions(currentPage)
+
+      const solvedHash = data.solution?.hash ?? record.hash
+      const targetPage = await findSolutionPageByHash(solvedHash)
+
+      setPage('solutions')
+      if (window.location.pathname !== '/solutions') {
+        window.history.pushState({}, '', '/solutions')
+      }
+
+      await loadSolutions(targetPage ?? 1)
+      await loadSolutionDetail(solvedHash)
     } catch {
       await loadStats()
-      await loadSolutions(currentPage)
+      setPage('solutions')
+      if (window.location.pathname !== '/solutions') {
+        window.history.pushState({}, '', '/solutions')
+      }
+      await loadSolutions(1)
+      await loadSolutionDetail(record.hash)
     }
-  }, [loadStats, loadSolutions, currentPage])
+  }, [loadStats, loadSolutions, loadSolutionDetail, findSolutionPageByHash])
 
   const formatTime = (iso: string) => {
     const d = new Date(iso)

@@ -227,7 +227,6 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   });
   const [shapeActionMenu, setShapeActionMenu] = useState<ShapeActionMenuState | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
-  const [level, setLevel] = useState(1);
   const boardSvgRef = useRef<SVGSVGElement | null>(null);
   const shapeActionMenuRef = useRef<HTMLDivElement | null>(null);
   const cursorRafRef = useRef<number | null>(null);
@@ -267,14 +266,11 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
       const persistResult = persistLevelClearRecord(record);
       console.info('Level clear record:', record, 'existingSolution:', persistResult.exists);
       onLevelCleared?.(record);
-
-      alert(`🎉 Level ${level} Complete!`);
-      setLevel(level + 1);
       setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
       setMovingShapeId(null);
       setSelectedShape(null);
     }
-  }, [board, level, shapeRotations, shapeFlips, onLevelCleared]);
+  }, [board, shapeRotations, shapeFlips, onLevelCleared]);
 
   const getMappedTriangles = (
     shapeId: number,
