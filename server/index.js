@@ -22,6 +22,33 @@ function createEmptyStore() {
   };
 }
 
+function extractLayoutDetails(record) {
+  const shapeLayouts = Array.isArray(record?.shapeLayouts)
+    ? record.shapeLayouts.map(item => ({
+        shapeId: Number(item?.shapeId) || 0,
+        rotation: Number(item?.rotation) || 0,
+        flipped: Boolean(item?.flipped),
+        triangles: Array.isArray(item?.triangles)
+          ? item.triangles.map(value => Number(value)).filter(Number.isFinite)
+          : [],
+      }))
+    : [];
+
+  const cellStacks = Array.isArray(record?.cellStacks)
+    ? record.cellStacks.map(item => ({
+        cellId: Number(item?.cellId) || 0,
+        shapeIds: Array.isArray(item?.shapeIds)
+          ? item.shapeIds.map(value => Number(value)).filter(Number.isFinite)
+          : [],
+      }))
+    : [];
+
+  return {
+    shapeLayouts,
+    cellStacks,
+  };
+}
+
 async function ensureDataFile() {
   await fs.mkdir(dataDir, { recursive: true });
   try {
@@ -44,12 +71,15 @@ function normalizeStore(rawParsed) {
         if (clearedAt < existing.firstSolvedAt) existing.firstSolvedAt = clearedAt;
         if (clearedAt > existing.lastSolvedAt) existing.lastSolvedAt = clearedAt;
       } else {
+        const layoutDetails = extractLayoutDetails(item);
         grouped.set(item.hash, {
           hash: item.hash,
           level: Number(item.level) || 1,
           firstSolvedAt: clearedAt,
           lastSolvedAt: clearedAt,
           solvers: 1,
+          firstLayout: layoutDetails,
+          latestLayout: layoutDetails,
           latestRecord: item,
         });
       }
@@ -74,6 +104,8 @@ function normalizeStore(rawParsed) {
           firstSolvedAt: typeof item.firstSolvedAt === 'string' ? item.firstSolvedAt : new Date().toISOString(),
           lastSolvedAt: typeof item.lastSolvedAt === 'string' ? item.lastSolvedAt : new Date().toISOString(),
           solvers: Math.max(1, Number(item.solvers) || 1),
+          firstLayout: item.firstLayout ?? extractLayoutDetails(item.latestRecord ?? item),
+          latestLayout: item.latestLayout ?? extractLayoutDetails(item.latestRecord ?? item),
           latestRecord: item.latestRecord ?? null,
         }))
     : [];
@@ -123,6 +155,22 @@ function listSolutions(store) {
     }));
 }
 
+function getSolutionDetail(store, hash) {
+  const solutions = Array.isArray(store.solutions) ? store.solutions : [];
+  const item = solutions.find(solution => solution.hash === hash);
+  if (!item) return null;
+
+  return {
+    hash: item.hash,
+    level: item.level,
+    solvers: item.solvers,
+    firstSolvedAt: item.firstSolvedAt,
+    lastSolvedAt: item.lastSolvedAt,
+    firstLayout: item.firstLayout ?? null,
+    latestLayout: item.latestLayout ?? null,
+  };
+}
+
 app.get('/api/stats', async (_req, res) => {
   try {
     const store = await readStore();
@@ -161,6 +209,20 @@ app.get('/api/solutions', async (_req, res) => {
   }
 });
 
+app.get('/api/solutions/:hash', async (req, res) => {
+  try {
+    const store = await readStore();
+    const detail = getSolutionDetail(store, req.params.hash);
+    if (!detail) {
+      res.status(404).json({ error: 'Solution not found' });
+      return;
+    }
+    res.json(detail);
+  } catch {
+    res.status(500).json({ error: 'Failed to load solution detail' });
+  }
+});
+
 app.post('/api/clears', async (req, res) => {
   const record = req.body;
   if (!record || typeof record.hash !== 'string' || typeof record.level !== 'number') {
@@ -171,6 +233,7 @@ app.post('/api/clears', async (req, res) => {
   try {
     const store = await readStore();
     const nowIso = new Date().toISOString();
+    const layoutDetails = extractLayoutDetails(record);
     const solutions = Array.isArray(store.solutions) ? store.solutions : [];
     const existedIndex = solutions.findIndex(item => item.hash === record.hash);
 
@@ -181,6 +244,8 @@ app.post('/api/clears', async (req, res) => {
         level: Number(record.level) || current.level,
         solvers: (Number(current.solvers) || 0) + 1,
         lastSolvedAt: nowIso,
+        firstLayout: current.firstLayout ?? layoutDetails,
+        latestLayout: layoutDetails,
         latestRecord: record,
       };
     } else {
@@ -190,6 +255,8 @@ app.post('/api/clears', async (req, res) => {
         firstSolvedAt: nowIso,
         lastSolvedAt: nowIso,
         solvers: 1,
+        firstLayout: layoutDetails,
+        latestLayout: layoutDetails,
         latestRecord: record,
       });
     }
