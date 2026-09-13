@@ -1296,7 +1296,7 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                             height="124%"
                             colorInterpolationFilters="sRGB"
                           >
-                            <feMorphology in="SourceAlpha" operator="dilate" radius="2" result="dilated" />
+                            <feMorphology in="SourceAlpha" operator="dilate" radius="2.5" result="dilated" />
                             <feComposite in="dilated" in2="SourceAlpha" operator="out" result="ring" />
                             <feFlood floodColor={outlineColor} floodOpacity="0.9" result="ringColor" />
                             <feComposite in="ringColor" in2="ring" operator="in" result="coloredRing" />
