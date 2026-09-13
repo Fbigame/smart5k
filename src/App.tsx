@@ -292,7 +292,8 @@ function App() {
         <section className="solutions-page">
           <div className="solutions-head">
             <div className="solutions-title-row">
-              <h2>解法列表（按首次通关）</h2>
+              <h2>解法列表</h2>
+              <span className="solutions-subtitle">（按首次通关）</span>
               <p>共 {totalSolutions} 条</p>
             </div>
             <button type="button" className="ghost-btn" onClick={backToHome}>返回首页</button>
