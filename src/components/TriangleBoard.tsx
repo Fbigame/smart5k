@@ -263,6 +263,29 @@ if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
     }
   };
 
+  // 为预览计算三角形坐标的函数 - 基于相对位置
+  const getPreviewTriangleCoords = (cell: TriangleCell, baseCell: TriangleCell, size: number = 50, centerX: number = 100, centerY: number = 125): string => {
+    const h = (size * Math.sqrt(3)) / 2;
+    
+    // 计算相对于基准三角形的偏移
+    const rowDiff = cell.row - baseCell.row;
+    const colDiff = cell.col - baseCell.col;
+    
+    // 计算offsetX的变化：当row变化时，offsetX会改变
+    const offsetXBase = (10 - baseCell.row - 1) * (size / 2);
+    const offsetXCell = (10 - cell.row - 1) * (size / 2);
+    const offsetXDiff = offsetXCell - offsetXBase;
+    
+    const rowY = rowDiff * h + centerY;
+    const colX = colDiff * (size / 2) + offsetXDiff + centerX;
+
+    if (cell.direction === 'UP') {
+      return `${colX},${rowY} ${colX - size / 2},${rowY + h} ${colX + size / 2},${rowY + h}`;
+    } else {
+      return `${colX - size / 2},${rowY} ${colX + size / 2},${rowY} ${colX},${rowY + h}`;
+    }
+  };
+
   const triangleSize = 65; // 三角形的边长
   const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
@@ -440,8 +463,8 @@ if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
               return (
                 <svg
                   key={idx + 1}
-                  width="90"
-                  height="110"
+                  width="110"
+                  height="130"
                   viewBox="0 0 200 250"
                   preserveAspectRatio="xMidYMid meet"
                   onClick={() => handleShapeSelect(idx + 1)}
@@ -453,21 +476,27 @@ if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
                 >
                   {shape ? (
                     <>
-                      {board
-                        .filter(cell => shape.triangles.includes(parseInt(cell.id.replace('cell-', ''))))
-                        .map(cell => {
-                          const color = SHAPE_COLORS[idx];
-                          return (
-                            <polygon
-                              key={cell.id}
-                              points={getTriangleCoords(cell, 30)}
-                              fill={color}
-                              stroke={isSelected ? SHAPE_COLORS[idx] : '#999'}
-                              strokeWidth={isSelected ? "1.5" : "0.5"}
-                              opacity="0.95"
-                            />
-                          );
-                        })}
+                      {(() => {
+                        const shapeTriangleIds = shape.triangles;
+                        const baseCell = board.find(c => c.id === `cell-${shapeTriangleIds[0]}`);
+                        if (!baseCell) return null;
+                        
+                        return board
+                          .filter(cell => shapeTriangleIds.includes(parseInt(cell.id.replace('cell-', ''))))
+                          .map(cell => {
+                            const color = SHAPE_COLORS[idx];
+                            return (
+                              <polygon
+                                key={cell.id}
+                                points={getPreviewTriangleCoords(cell, baseCell, 55, 100, 125)}
+                                fill={color}
+                                stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
+                                strokeWidth={isSelected ? "2" : "1"}
+                                opacity="0.95"
+                              />
+                            );
+                          });
+                      })()}
                     </>
                   ) : (
                     <text x="100" y="125" textAnchor="middle" fontSize="48" fill="#ddd">
