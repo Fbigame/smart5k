@@ -432,7 +432,6 @@ const TriangleBoard: React.FC = () => {
                   
                   if (!allValid) return null;
                   
-                  const shapeId = selectedShape || movingShapeId;
                   return mappedTriangles.map(triangleId => {
                     const cell = board.find(c => c.id === `cell-${triangleId}`);
                     if (!cell) return null;
