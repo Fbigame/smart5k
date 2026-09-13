@@ -22,6 +22,8 @@ interface ShapeActionMenuState {
   anchorCellId?: string;
 }
 
+type QuickActionMode = 'none' | 'rotate' | 'flip';
+
 export interface LevelClearRecord {
   hash: string;
   clearedAt: string;
@@ -227,6 +229,14 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   });
   const [shapeActionMenu, setShapeActionMenu] = useState<ShapeActionMenuState | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
+  const [quickActionMode, setQuickActionMode] = useState<QuickActionMode>('none');
+  const [isFinePointer, setIsFinePointer] = useState<boolean>(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return true;
+    }
+
+    return window.matchMedia('(pointer: fine)').matches;
+  });
   const boardSvgRef = useRef<SVGSVGElement | null>(null);
   const shapeActionMenuRef = useRef<HTMLDivElement | null>(null);
   const cursorRafRef = useRef<number | null>(null);
@@ -257,6 +267,21 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     window.addEventListener('pointerdown', handlePointerDown);
     return () => window.removeEventListener('pointerdown', handlePointerDown);
   }, [shapeActionMenu]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') {
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(pointer: fine)');
+    const handleChange = (event: MediaQueryListEvent) => {
+      setIsFinePointer(event.matches);
+    };
+
+    setIsFinePointer(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleChange);
+    return () => mediaQuery.removeEventListener('change', handleChange);
+  }, []);
 
   useEffect(() => {
     // 检查所有允许的三角形是否都被填充（81 - 9 禁用 = 72 个允许）
@@ -387,6 +412,12 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   };
 
   const handleCellPointerDown = (event: React.PointerEvent<SVGPolygonElement>, cellId: string) => {
+    if (quickActionMode !== 'none') {
+      event.preventDefault();
+      setShapeActionMenu(null);
+      return;
+    }
+
     setShapeActionMenu(null);
     setHadDragPreview(false);
     setDragStartPoint({ x: event.clientX, y: event.clientY });
@@ -394,6 +425,28 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   };
 
   const handleCellPointerUp = (event: React.PointerEvent<SVGPolygonElement>, cellId: string) => {
+    if (quickActionMode !== 'none') {
+      event.preventDefault();
+
+      const cell = board.find(c => c.id === cellId);
+      if (!cell || DISABLED_CELLS.has(cellId) || cell.shapeIds.length === 0) {
+        return;
+      }
+
+      const targetShapeId = cell.shapeIds[cell.shapeIds.length - 1];
+      if (!targetShapeId) {
+        return;
+      }
+
+      if (quickActionMode === 'rotate') {
+        rotatePlacedShapeAtCell(targetShapeId, cellId);
+      } else if (!MIRROR_SYMMETRIC_SHAPE_IDS.has(targetShapeId)) {
+        flipPlacedShapeAtCell(targetShapeId, cellId);
+      }
+
+      return;
+    }
+
     if (selectedShape && draggingFromPanel) {
       const cell = board.find(c => c.id === cellId);
       if (!cell) return;
@@ -615,6 +668,11 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   };
 
   const handleShapeCardPointerDown = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
+    if (quickActionMode !== 'none') {
+      event.preventDefault();
+      return;
+    }
+
     if (movingShapeId) return;
 
     setShapeActionMenu(null);
@@ -626,6 +684,24 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   };
 
   const handleShapeCardPointerUp = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
+    if (quickActionMode !== 'none') {
+      event.preventDefault();
+
+      if (quickActionMode === 'rotate') {
+        rotateShape(shapeId);
+      } else if (!MIRROR_SYMMETRIC_SHAPE_IDS.has(shapeId)) {
+        flipShape(shapeId);
+      }
+
+      setShapeActionMenu(null);
+      setSelectedShape(null);
+      setPanelPointerShapeId(null);
+      setDraggingFromPanel(false);
+      setSnappedTriangles(null);
+      setDragStartPoint(null);
+      return;
+    }
+
     if (panelPointerShapeId !== shapeId) return;
 
     if (!draggingFromPanel) {
@@ -744,6 +820,19 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     setDraggingShape(false);
     setHadDragPreview(false);
     setDragStartPoint(null);
+  };
+
+  const toggleQuickActionMode = (mode: Exclude<QuickActionMode, 'none'>) => {
+    setQuickActionMode(prev => (prev === mode ? 'none' : mode));
+    setShapeActionMenu(null);
+    setSelectedShape(null);
+    setPanelPointerShapeId(null);
+    setDraggingFromPanel(false);
+    setMovingShapeId(null);
+    setDraggingShape(false);
+    setSnappedTriangles(null);
+    setDragStartPoint(null);
+    setHadDragPreview(false);
   };
 
   useEffect(() => {
@@ -1235,6 +1324,8 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                       style={{
                         cursor: isDisabled
                           ? 'default'
+                          : quickActionMode !== 'none'
+                          ? 'pointer'
                           : movingShapeId
                           ? 'grabbing'
                           : cell.shapeIds.length > 0
@@ -1295,6 +1386,23 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
 
         {/* 右侧：形状选择与预览 */}
         <div className="shape-section" onPointerUp={handleShapeSectionPointerUp}>
+          <div className="quick-action-toolbar" role="group" aria-label="快速操作模式">
+            <button
+              type="button"
+              className={`quick-action-btn ${quickActionMode === 'rotate' ? 'active' : ''}`}
+              onClick={() => toggleQuickActionMode('rotate')}
+            >
+              快速旋转
+            </button>
+            <button
+              type="button"
+              className={`quick-action-btn ${quickActionMode === 'flip' ? 'active' : ''}`}
+              onClick={() => toggleQuickActionMode('flip')}
+            >
+              快速翻转
+            </button>
+          </div>
+
           <div className="shapes-grid">
             {/* 显示12个形状的预览网格 */}
             {Array.from({ length: 12 }).map((_, idx) => {
@@ -1420,7 +1528,7 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
         </div>
       )}
 
-      {activePreviewShapeId && cursorPosition && (
+      {activePreviewShapeId && cursorPosition && isFinePointer && (
         <div
           className="floating-shape-preview"
           style={{

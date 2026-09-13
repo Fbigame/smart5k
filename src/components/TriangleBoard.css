@@ -81,6 +81,38 @@
   scrollbar-width: none;
 }
 
+.triangle-game-container .quick-action-toolbar {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.triangle-game-container .quick-action-btn {
+  border: 1px solid rgba(22, 65, 107, 0.2);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #12406e;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.triangle-game-container .quick-action-btn:hover {
+  background: rgba(255, 255, 255, 1);
+  border-color: rgba(18, 64, 110, 0.35);
+  transform: translateY(-1px);
+}
+
+.triangle-game-container .quick-action-btn.active {
+  background: #1d5f97;
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.45);
+  box-shadow: 0 4px 12px rgba(15, 49, 80, 0.25);
+}
+
 .triangle-game-container .shape-section::-webkit-scrollbar {
   display: none;
 }
@@ -174,5 +206,10 @@
   .triangle-game-container .game-content {
     border-radius: 14px;
     padding: 10px;
+  }
+
+  .triangle-game-container .quick-action-btn {
+    font-size: 12px;
+    padding: 7px 8px;
   }
 }
