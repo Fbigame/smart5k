@@ -22,7 +22,7 @@ interface ShapeActionMenuState {
   anchorCellId?: string;
 }
 
-interface LevelClearRecord {
+export interface LevelClearRecord {
   level: number;
   hash: string;
   clearedAt: string;
@@ -36,6 +36,10 @@ interface LevelClearRecord {
     cellId: number;
     shapeIds: number[];
   }>;
+}
+
+interface TriangleBoardProps {
+  onLevelCleared?: (record: LevelClearRecord) => void;
 }
 
 const SHAPE_COLORS = [
@@ -193,7 +197,7 @@ const DISABLED_CELLS = new Set<string>();
   DISABLED_CELLS.add(`cell-${id}`);
 });
 
-const TriangleBoard: React.FC = () => {
+const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   const [board, setBoard] = useState<TriangleCell[]>([]);
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
   const [, setHoveredTriangleId] = useState<number | null>(null);
@@ -250,6 +254,7 @@ const TriangleBoard: React.FC = () => {
       const record = buildLevelClearRecord(board, shapeRotations, shapeFlips, level);
       const persistResult = persistLevelClearRecord(record);
       console.info('Level clear record:', record, 'existingSolution:', persistResult.exists);
+      onLevelCleared?.(record);
 
       alert(`🎉 Level ${level} Complete!`);
       setLevel(level + 1);
@@ -257,7 +262,7 @@ const TriangleBoard: React.FC = () => {
       setMovingShapeId(null);
       setSelectedShape(null);
     }
-  }, [board, level, shapeRotations, shapeFlips]);
+  }, [board, level, shapeRotations, shapeFlips, onLevelCleared]);
 
   const getMappedTriangles = (
     shapeId: number,

@@ -1,8 +1,100 @@
-/* App component styles - minimal reset */
-#root {
-  width: 100%;
-  height: 100vh;
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: 16px 10px 22px;
+  background:
+    radial-gradient(circle at 8% 10%, rgba(255, 157, 0, 0.12), transparent 30%),
+    radial-gradient(circle at 92% 18%, rgba(0, 180, 216, 0.15), transparent 32%),
+    linear-gradient(160deg, #f5f7fa 0%, #e6eef7 100%);
+}
+
+.lobby-card {
+  width: min(920px, 96vw);
+  border-radius: 18px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 14px 38px rgba(14, 24, 42, 0.12);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lobby-label {
   margin: 0;
-  padding: 0;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5e6b7a;
+}
+
+.lobby-title {
+  margin: 0;
+  color: #18233a;
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.lobby-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.stat-item {
+  min-width: 122px;
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #eff4fb;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  color: #1e2f4f;
+}
+
+.stat-item span {
+  font-size: 12px;
+  opacity: 0.75;
+}
+
+.stat-item strong {
+  font-size: 26px;
+  line-height: 1.1;
+}
+
+.start-btn {
+  border: 0;
+  border-radius: 12px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.start-btn:active {
+  transform: translateY(1px);
+}
+
+.game-stage {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 900px) {
+  .lobby-card {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .lobby-stats {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
