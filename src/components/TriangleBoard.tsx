@@ -287,6 +287,50 @@ const TriangleBoard: React.FC = () => {
     );
   };
 
+  const rotatePlacedShapeAtCell = (shapeId: number, anchorCellId: string) => {
+    const anchorCell = board.find(c => c.id === anchorCellId);
+    if (!anchorCell) return;
+
+    const nextRotation = ((shapeRotations[shapeId] ?? 0) + 1) % 6;
+    const anchorCenter = getTriangleCenter(anchorCell, triangleSize);
+    const bestSnap = findBestSnapPlacement(
+      shapeId,
+      anchorCenter.x,
+      anchorCenter.y,
+      nextRotation,
+      shapeId
+    );
+
+    if (!bestSnap?.mappedTriangles) return;
+
+    setShapeRotations(prev => ({
+      ...prev,
+      [shapeId]: nextRotation,
+    }));
+
+    setBoard(prevBoard =>
+      prevBoard.map(cell => {
+        const id = parseInt(cell.id.replace('cell-', ''));
+        let nextShapeIds = cell.shapeIds.filter(idValue => idValue !== shapeId);
+
+        if (bestSnap.mappedTriangles.includes(id)) {
+          nextShapeIds = [...nextShapeIds, shapeId];
+        }
+
+        const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
+        return {
+          ...cell,
+          shapeIds: nextShapeIds,
+          filled: nextShapeIds.length > 0,
+          shapeId: nextTopShapeId,
+        };
+      })
+    );
+
+    setSnappedTriangles(bestSnap.mappedTriangles);
+    setMovingShapeId(shapeId);
+  };
+
   const handleShapeSelect = (shapeId: number) => {
     if (movingShapeId) return;
 
@@ -694,6 +738,11 @@ const TriangleBoard: React.FC = () => {
                       strokeWidth="0"
                       className="triangle-cell"
                       onPointerDown={() => handleCellMouseDown(cell.id)}
+                      onDoubleClick={() => {
+                        const shapeId = cell.shapeIds[cell.shapeIds.length - 1];
+                        if (!shapeId || selectedShape) return;
+                        rotatePlacedShapeAtCell(shapeId, cell.id);
+                      }}
                       onClick={() => handleCellClick(cell.id)}
                       style={{
                         cursor: isDisabled
