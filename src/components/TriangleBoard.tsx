@@ -76,13 +76,22 @@ const TriangleBoard: React.FC = () => {
 
   const handleCellClick = (cellId: string) => {
     if (!selectedShape || DISABLED_CELLS.has(cellId)) return;
-    setBoard(prevBoard =>
-      prevBoard.map(cell =>
-        cell.id === cellId && !cell.filled
-          ? { ...cell, filled: true, shapeId: selectedShape }
-          : cell
-      )
-    );
+    
+    // 检查这个三角形是否属于选中的形状
+    const cellNum = parseInt(cellId.replace('cell-', ''));
+    const shapeTriangles = SHAPES[selectedShape - 1]?.triangles || [];
+    
+    // 只有点击形状的一部分时才填充整个形状
+    if (shapeTriangles.includes(cellNum)) {
+      setBoard(prevBoard =>
+        prevBoard.map(cell => {
+          const id = parseInt(cell.id.replace('cell-', ''));
+          return shapeTriangles.includes(id) && !cell.filled
+            ? { ...cell, filled: true, shapeId: selectedShape }
+            : cell;
+        })
+      );
+    }
   };
 
   const handleShapeSelect = (shapeId: number) => {
@@ -177,6 +186,31 @@ const TriangleBoard: React.FC = () => {
                   </g>
                 );
               })}
+
+              {/* 虚拟形状显示 */}
+              {selectedShape && SHAPES[selectedShape - 1] && !board.every(cell => 
+                !SHAPES[selectedShape - 1].triangles.includes(parseInt(cell.id.replace('cell-', ''))) || cell.filled
+              ) && (
+                board.map(cell => {
+                  const cellNum = parseInt(cell.id.replace('cell-', ''));
+                  const shapeTriangles = SHAPES[selectedShape - 1]?.triangles || [];
+                  
+                  if (shapeTriangles.includes(cellNum) && !cell.filled) {
+                    return (
+                      <polygon
+                        key={`virtual-${cell.id}`}
+                        points={getTriangleCoords(cell, triangleSize)}
+                        fill={SHAPE_COLORS[selectedShape - 1]}
+                        stroke={SHAPE_COLORS[selectedShape - 1]}
+                        strokeWidth="1"
+                        opacity="0.3"
+                        pointerEvents="none"
+                      />
+                    );
+                  }
+                  return null;
+                })
+              )}
             </svg>
           </div>
         </div>
@@ -200,10 +234,10 @@ const TriangleBoard: React.FC = () => {
           </div>
 
           {/* 形状预览 */}
-          {selectedShape && (
+          {selectedShape && SHAPES[selectedShape - 1] && (
             <div className="shape-preview">
-              <h3>Preview</h3>
-              <svg width="120" height="140" className="preview-board" viewBox="0 0 120 140">
+              <h3>{SHAPES[selectedShape - 1].description}</h3>
+              <svg width="140" height="160" className="preview-board" viewBox="0 0 140 160" preserveAspectRatio="xMidYMid meet">
                 {board
                   .filter(cell => SHAPES[selectedShape - 1]?.triangles.includes(parseInt(cell.id.replace('cell-', ''))))
                   .map(cell => {
@@ -211,10 +245,11 @@ const TriangleBoard: React.FC = () => {
                     return (
                       <polygon
                         key={cell.id}
-                        points={getTriangleCoords(cell, 15)}
+                        points={getTriangleCoords(cell, 18)}
                         fill={color}
                         stroke="#333"
-                        strokeWidth="1"
+                        strokeWidth="0.5"
+                        opacity="0.8"
                       />
                     );
                   })}
