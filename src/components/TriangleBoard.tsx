@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SHAPES } from '../utils/shapeDefinitions';
 import './GameBoard.css';
 import './TriangleBoard.css';
@@ -65,6 +65,7 @@ const TriangleBoard: React.FC = () => {
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
+  const boardSvgRef = useRef<SVGSVGElement | null>(null);
 
   // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
   const placedShapes = useMemo(() => {
@@ -375,7 +376,7 @@ const TriangleBoard: React.FC = () => {
     if (movingShapeId) return;
 
     setPanelPointerShapeId(shapeId);
-    setSelectedShape(shapeId);
+    setSelectedShape(null);
     setDraggingFromPanel(false);
     setDragStartPoint({ x: event.clientX, y: event.clientY });
     setSnappedTriangles(null);
@@ -386,11 +387,53 @@ const TriangleBoard: React.FC = () => {
 
     if (!draggingFromPanel) {
       rotateShape(shapeId);
+      setSelectedShape(null);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
+    } else {
+      setSelectedShape(null);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
     }
 
     setPanelPointerShapeId(null);
     setDraggingFromPanel(false);
     setDragStartPoint(null);
+  };
+
+  const placeSelectedShapeByClientPoint = (clientX: number, clientY: number): boolean => {
+    if (!selectedShape || !draggingFromPanel || !boardSvgRef.current) return false;
+
+    const rect = boardSvgRef.current.getBoundingClientRect();
+    const inside = clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+    if (!inside) return false;
+
+    const mouseX = ((clientX - rect.left) / rect.width) * svgWidth;
+    const mouseY = ((clientY - rect.top) / rect.height) * svgHeight;
+    const rotationStep = shapeRotations[selectedShape] ?? 0;
+    const bestSnap = findBestSnapPlacement(selectedShape, mouseX, mouseY, rotationStep);
+    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles;
+    if (!mappedTriangles) return false;
+
+    setBoard(prevBoard =>
+      prevBoard.map(item => {
+        const id = parseInt(item.id.replace('cell-', ''));
+        if (!mappedTriangles.includes(id)) return item;
+
+        const nextShapeIds = item.shapeIds.includes(selectedShape)
+          ? item.shapeIds
+          : [...item.shapeIds, selectedShape];
+
+        return {
+          ...item,
+          shapeIds: nextShapeIds,
+          filled: nextShapeIds.length > 0,
+          shapeId: nextShapeIds[nextShapeIds.length - 1],
+        };
+      })
+    );
+
+    return true;
   };
 
   const rotateShape = (shapeId: number) => {
@@ -597,6 +640,39 @@ const TriangleBoard: React.FC = () => {
     return () => window.removeEventListener('pointermove', handleGlobalMouseMove);
   }, [activePreviewShapeId]);
 
+  useEffect(() => {
+    if (!panelPointerShapeId || !dragStartPoint || draggingFromPanel) return;
+
+    const handleGlobalMove = (event: PointerEvent) => {
+      const dx = event.clientX - dragStartPoint.x;
+      const dy = event.clientY - dragStartPoint.y;
+      if (dx * dx + dy * dy > 36) {
+        setDraggingFromPanel(true);
+        setSelectedShape(panelPointerShapeId);
+      }
+    };
+
+    window.addEventListener('pointermove', handleGlobalMove);
+    return () => window.removeEventListener('pointermove', handleGlobalMove);
+  }, [panelPointerShapeId, dragStartPoint, draggingFromPanel]);
+
+  useEffect(() => {
+    if (!selectedShape || !draggingFromPanel) return;
+
+    const handleGlobalUp = (event: PointerEvent) => {
+      placeSelectedShapeByClientPoint(event.clientX, event.clientY);
+      setSelectedShape(null);
+      setPanelPointerShapeId(null);
+      setDraggingFromPanel(false);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
+      setDragStartPoint(null);
+    };
+
+    window.addEventListener('pointerup', handleGlobalUp);
+    return () => window.removeEventListener('pointerup', handleGlobalUp);
+  }, [selectedShape, draggingFromPanel, snappedTriangles, shapeRotations, board]);
+
   const cellCenters = useMemo(() => {
     return board
       .filter(cell => !DISABLED_CELLS.has(cell.id))
@@ -690,14 +766,6 @@ const TriangleBoard: React.FC = () => {
   const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
 
-    if (selectedShape && panelPointerShapeId && dragStartPoint && !draggingFromPanel) {
-      const dx = event.clientX - dragStartPoint.x;
-      const dy = event.clientY - dragStartPoint.y;
-      if (dx * dx + dy * dy > 36) {
-        setDraggingFromPanel(true);
-      }
-    }
-
     if (movingShapeId && dragStartPoint && !draggingShape) {
       const dx = event.clientX - dragStartPoint.x;
       const dy = event.clientY - dragStartPoint.y;
@@ -777,6 +845,7 @@ const TriangleBoard: React.FC = () => {
         <div className="board-section">
           <div className="board-wrapper">
             <svg
+              ref={boardSvgRef}
               width={displayWidth}
               height={displayHeight}
               className="triangle-board"
