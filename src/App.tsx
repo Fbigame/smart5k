@@ -60,9 +60,9 @@ function App() {
     <main className="app-shell">
       <section className="lobby-card">
         <div className="lobby-copy">
-          <p className="lobby-label">Triangle Challenge</p>
-          <h1 className="lobby-title">通关记录中心</h1>
-          <p className="lobby-subtitle">挑战速度与布局创意，每次通关都会自动记录。</p>
+          <p className="lobby-label">Smart5k Puzzle</p>
+          <h1 className="lobby-title">智力五千通</h1>
+          <p className="lobby-subtitle">一个拥有 5000 多种解法的图形拼放挑战，每一步都可能通向全新的通关路径。</p>
         </div>
         <div className="lobby-stats">
           <div className="stat-item">
