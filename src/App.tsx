@@ -31,7 +31,9 @@ function App() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalSolutions, setTotalSolutions] = useState(0)
-  const [showSolutions, setShowSolutions] = useState(false)
+  const [page, setPage] = useState<'home' | 'solutions'>(() =>
+    window.location.pathname === '/solutions' ? 'solutions' : 'home'
+  )
   const [loading, setLoading] = useState(true)
   const pageSize = 9
 
@@ -67,6 +69,15 @@ function App() {
     void loadSolutions(1)
   }, [loadStats, loadSolutions])
 
+  useEffect(() => {
+    const handlePopState = () => {
+      setPage(window.location.pathname === '/solutions' ? 'solutions' : 'home')
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   const handleLevelCleared = useCallback(async (record: LevelClearRecord) => {
     try {
       const response = await fetch(`${API_BASE}/clears`, {
@@ -100,42 +111,58 @@ function App() {
     return d.toLocaleString('zh-CN', { hour12: false })
   }
 
+  const openSolutionsPage = () => {
+    setPage('solutions')
+    void loadSolutions(1)
+    if (window.location.pathname !== '/solutions') {
+      window.history.pushState({}, '', '/solutions')
+    }
+  }
+
+  const backToHome = () => {
+    setPage('home')
+    if (window.location.pathname !== '/') {
+      window.history.pushState({}, '', '/')
+    }
+  }
+
   return (
     <main className="app-shell">
-      <section className="lobby-card">
-        <div className="lobby-copy">
-          <p className="lobby-label">Smart5k Puzzle</p>
-          <h1 className="lobby-title">智力五千通</h1>
-          <p className="lobby-subtitle">一个拥有 5000 多种解法的图形拼放挑战，每一步都可能通向全新的通关路径。</p>
-        </div>
-        <div className="lobby-stats">
-          <div className="stat-item">
-            <span>总解法数量</span>
-            <strong>{loading ? '...' : stats.totalSolutions}</strong>
-          </div>
-        </div>
-        <button type="button" className="start-btn" onClick={() => setStarted(true)}>
-          {started ? '继续游戏' : '开始游戏'}
-        </button>
-        <button
-          type="button"
-          className="ghost-btn"
-          onClick={() => {
-            setShowSolutions(prev => !prev)
-            if (!showSolutions) {
-              void loadSolutions(1)
-            }
-          }}
-        >
-          {showSolutions ? '收起解法' : '查看解法'}
-        </button>
-      </section>
+      {page === 'home' && (
+        <>
+          <section className="lobby-card">
+            <div className="lobby-copy">
+              <p className="lobby-label">Smart5k Puzzle</p>
+              <h1 className="lobby-title">智力五千通</h1>
+              <p className="lobby-subtitle">一个拥有 5000 多种解法的图形拼放挑战，每一步都可能通向全新的通关路径。</p>
+            </div>
+            <div className="lobby-stats">
+              <button type="button" className="stat-item stat-link" onClick={openSolutionsPage}>
+                <span>总解法数量（点击查看）</span>
+                <strong>{loading ? '...' : stats.totalSolutions}</strong>
+              </button>
+            </div>
+            <button type="button" className="start-btn" onClick={() => setStarted(true)}>
+              {started ? '继续游戏' : '开始游戏'}
+            </button>
+          </section>
 
-      {showSolutions && (
-        <section className="solutions-card">
+          {started && (
+            <section className="game-stage">
+              <TriangleBoard onLevelCleared={handleLevelCleared} />
+            </section>
+          )}
+        </>
+      )}
+
+      {page === 'solutions' && (
+        <section className="solutions-page">
           <div className="solutions-head">
-            <h2>解法列表（按首次通关）</h2>
-            <p>共 {totalSolutions} 条</p>
+            <div>
+              <h2>解法列表（按首次通关）</h2>
+              <p>共 {totalSolutions} 条</p>
+            </div>
+            <button type="button" className="ghost-btn" onClick={backToHome}>返回首页</button>
           </div>
           {solutions.length === 0 ? (
             <p className="empty-tip">还没有解法记录，快成为第一个通关者。</p>
@@ -143,7 +170,7 @@ function App() {
             <div className="solutions-list">
               {solutions.map((item, index) => (
                 <article key={item.hash} className="solution-item">
-                  <p className="solution-rank">#{index + 1}</p>
+                  <p className="solution-rank">#{(currentPage - 1) * pageSize + index + 1}</p>
                   <p><strong>Hash：</strong>{item.hash}</p>
                   <p><strong>关卡：</strong>{item.level}</p>
                   <p><strong>总人数：</strong>{item.solvers}</p>
@@ -171,12 +198,6 @@ function App() {
               下一页
             </button>
           </div>
-        </section>
-      )}
-
-      {started && (
-        <section className="game-stage">
-          <TriangleBoard onLevelCleared={handleLevelCleared} />
         </section>
       )}
     </main>

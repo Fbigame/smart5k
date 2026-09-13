@@ -126,6 +126,17 @@
   background: rgba(255, 255, 255, 0.86);
 }
 
+.stat-link {
+  border: 1px solid rgba(34, 79, 129, 0.12);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.2s ease;
+}
+
+.stat-link:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(16, 52, 88, 0.12);
+}
+
 .start-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 14px 30px rgba(2, 62, 138, 0.38);
@@ -149,6 +160,15 @@
   background: rgba(248, 252, 255, 0.85);
   border: 1px solid rgba(29, 87, 138, 0.12);
   box-shadow: 0 10px 24px rgba(20, 42, 70, 0.1);
+}
+
+.solutions-page {
+  width: min(1120px, 98vw);
+  border-radius: 20px;
+  padding: 18px;
+  background: linear-gradient(150deg, rgba(252, 255, 255, 0.95), rgba(239, 248, 255, 0.92));
+  border: 1px solid rgba(24, 74, 122, 0.12);
+  box-shadow: 0 16px 36px rgba(16, 42, 72, 0.12);
 }
 
 .solutions-head {
