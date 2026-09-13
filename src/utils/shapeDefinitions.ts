@@ -17,12 +17,78 @@ export interface ShapeDefinition {
  * 所有12个道具的定义
  */
 export const SHAPES: ShapeDefinition[] = [
-  ...Array.from({ length: 12 }, (_, index) => ({
-    id: index + 1,
-    name: `Hexagon ${index + 1}`,
-    description: '正六边形',
+  {
+    id: 1,
+    name: 'Shape 1',
+    description: '形状1',
     triangles: [59, 60, 61, 75, 76, 77],
-  })),
+  },
+  {
+    id: 2,
+    name: 'Shape 2',
+    description: '形状2',
+    triangles: [52, 53, 54, 68, 69, 70],
+  },
+  {
+    id: 3,
+    name: 'Shape 3',
+    description: '形状3',
+    triangles: [57, 58, 71, 72, 73, 74],
+  },
+  {
+    id: 4,
+    name: 'Shape 4',
+    description: '形状4',
+    triangles: [36, 37, 38, 50, 51, 67],
+  },
+  {
+    id: 5,
+    name: 'Shape 5',
+    description: '形状5',
+    triangles: [34, 35, 46, 47, 48, 62],
+  },
+  {
+    id: 6,
+    name: 'Shape 6',
+    description: '形状6',
+    triangles: [42, 43, 44, 45, 55, 56],
+  },
+  {
+    id: 7,
+    name: 'Shape 7',
+    description: '形状7',
+    triangles: [25, 26, 27, 39, 40, 41],
+  },
+  {
+    id: 8,
+    name: 'Shape 8',
+    description: '形状8',
+    triangles: [39, 40, 41, 42, 43, 44],
+  },
+  {
+    id: 9,
+    name: 'Shape 9',
+    description: '形状9',
+    triangles: [9, 11, 16, 17, 18, 19],
+  },
+  {
+    id: 10,
+    name: 'Shape 10',
+    description: '形状10',
+    triangles: [15, 20, 21, 22, 23, 24],
+  },
+  {
+    id: 11,
+    name: 'Shape 11',
+    description: '形状11',
+    triangles: [1, 4, 5, 6, 10, 12],
+  },
+  {
+    id: 12,
+    name: 'Shape 12',
+    description: '形状12',
+    triangles: [2, 3, 7, 8, 13, 14],
+  },
 ];
 
 /**
