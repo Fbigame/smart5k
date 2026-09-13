@@ -103,10 +103,13 @@ const TriangleBoard: React.FC = () => {
     const clickedCell = board.find(c => c.id === cellId);
     if (!clickedCell) return;
     
+    const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
+    
     // 如果点击的是已放置的形状，进入移动模式
     if (clickedCell.filled && clickedCell.shapeId) {
       setMovingShapeId(clickedCell.shapeId);
       setSelectedShape(clickedCell.shapeId);
+      setHoveredTriangleId(clickedTriangleId);
       return;
     }
     
