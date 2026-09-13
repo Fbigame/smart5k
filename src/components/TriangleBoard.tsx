@@ -179,6 +179,7 @@ const TriangleBoard: React.FC = () => {
         );
         setMovingShapeId(null);
         setSelectedShape(null);
+        setHoveredTriangleId(null);
       }
       return;
     }
@@ -377,14 +378,15 @@ const TriangleBoard: React.FC = () => {
               })}
 
               {/* 虚拟形状显示 - 跟随鼠标 */}
-              {selectedShape && hoveredTriangleId !== null && SHAPES[selectedShape - 1] && (
+              {(selectedShape || movingShapeId) && hoveredTriangleId !== null && (SHAPES[selectedShape - 1] || SHAPES[movingShapeId - 1]) && (
                 (() => {
-                  const baseCell = board.find(c => c.id === `cell-${hoveredTriangleId}`);
-                  if (!baseCell) return null;
+                  const shapeId = selectedShape || movingShapeId;
+                  const shapeTriangles = SHAPES[shapeId - 1]?.triangles;
+                  if (!shapeTriangles) return null;
                   
-                  const shapeTriangles = SHAPES[selectedShape - 1].triangles;
                   const baseCellRef = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
-                  if (!baseCellRef) return null;
+                  const baseCell = board.find(c => c.id === `cell-${hoveredTriangleId}`);
+                  if (!baseCellRef || !baseCell) return null;
                   
                   // 计算相对位置
                   const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
@@ -419,7 +421,8 @@ const TriangleBoard: React.FC = () => {
                     }
                     
                     // 允许覆盖同一个形状的旧位置，但不允许覆盖其他形状
-                    if (targetCell.filled && targetCell.shapeId !== selectedShape) {
+                    const shapeIdToCheck = selectedShape || movingShapeId;
+                    if (targetCell.filled && targetCell.shapeId !== shapeIdToCheck) {
                       allValid = false;
                       break;
                     }
@@ -429,6 +432,7 @@ const TriangleBoard: React.FC = () => {
                   
                   if (!allValid) return null;
                   
+                  const shapeId = selectedShape || movingShapeId;
                   return mappedTriangles.map(triangleId => {
                     const cell = board.find(c => c.id === `cell-${triangleId}`);
                     if (!cell) return null;
@@ -437,8 +441,8 @@ const TriangleBoard: React.FC = () => {
                       <polygon
                         key={`follow-${triangleId}`}
                         points={getTriangleCoords(cell, triangleSize)}
-                        fill={SHAPE_COLORS[selectedShape - 1]}
-                        stroke={SHAPE_COLORS[selectedShape - 1]}
+                        fill={SHAPE_COLORS[shapeId - 1]}
+                        stroke={SHAPE_COLORS[shapeId - 1]}
                         strokeWidth="2"
                         opacity="0.4"
                         pointerEvents="none"
