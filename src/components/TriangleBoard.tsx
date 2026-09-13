@@ -429,8 +429,10 @@ const TriangleBoard: React.FC = () => {
       })
     );
 
-    setSnappedTriangles(bestSnap.mappedTriangles);
-    setMovingShapeId(shapeId);
+    setSnappedTriangles(null);
+    setDraggingShape(false);
+    setDragStartPoint(null);
+    setMovingShapeId(null);
     return true;
   };
 
