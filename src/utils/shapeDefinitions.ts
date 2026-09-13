@@ -17,7 +17,12 @@ export interface ShapeDefinition {
  * 所有12个道具的定义
  */
 export const SHAPES: ShapeDefinition[] = [
-  // 形状将由用户逐一提供
+  {
+    id: 1,
+    name: 'Hexagon',
+    description: '正六边形',
+    triangles: [59, 60, 61, 75, 76, 77],
+  },
 ];
 
 /**
