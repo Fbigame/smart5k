@@ -83,7 +83,6 @@ const TriangleBoard: React.FC = () => {
   const [shapeActionMenu, setShapeActionMenu] = useState<ShapeActionMenuState | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
-  const [filledCount, setFilledCount] = useState(0);
   const boardSvgRef = useRef<SVGSVGElement | null>(null);
   const shapeActionMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -113,9 +112,6 @@ const TriangleBoard: React.FC = () => {
   }, [shapeActionMenu]);
 
   useEffect(() => {
-    const filled = board.filter(cell => !DISABLED_CELLS.has(cell.id) && cell.filled).length;
-    setFilledCount(filled);
-
     // 检查所有允许的三角形是否都被填充（81 - 9 禁用 = 72 个允许）
     const allowed = board.filter(cell => !DISABLED_CELLS.has(cell.id));
     if (allowed.length > 0 && allowed.every(cell => cell.filled)) {
@@ -984,14 +980,6 @@ const TriangleBoard: React.FC = () => {
 
   return (
     <div className="game-container triangle-game-container">
-      <div className="game-header">
-        <h1>Triangle Fill Game</h1>
-        <div className="stats">
-          <span>Level: {level}</span>
-          <span>Filled: {filledCount}/72</span>
-        </div>
-      </div>
-
       <div className="game-content">
         {/* 左侧：游戏棋盘 */}
         <div className="board-section">
@@ -1078,7 +1066,6 @@ const TriangleBoard: React.FC = () => {
 
         {/* 右侧：形状选择与预览 */}
         <div className="shape-section" onPointerUp={handleShapeSectionPointerUp}>
-          <h2 className="shape-title">Shapes</h2>
           <div className="shapes-grid">
             {/* 显示12个形状的预览网格 */}
             {Array.from({ length: 12 }).map((_, idx) => {
@@ -1147,18 +1134,6 @@ const TriangleBoard: React.FC = () => {
             })}
           </div>
         </div>
-      </div>
-
-      <div className="game-footer">
-        <button className="btn btn-primary" onClick={() => {
-          setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
-          setSelectedShape(null);
-          setMovingShapeId(null);
-          setHoveredTriangleId(null);
-          setSnappedTriangles(null);
-        }}>
-          Clear Board
-        </button>
       </div>
 
       {shapeActionMenu && (
