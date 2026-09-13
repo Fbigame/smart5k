@@ -61,6 +61,7 @@ const TriangleBoard: React.FC = () => {
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
+  const activeShapeForRotate = movingShapeId ?? selectedShape;
 
   // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
   const placedShapes = useMemo(() => {
@@ -170,13 +171,53 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleCellClick = (cellId: string) => {
-    if (movingShapeId) return;
     if (DISABLED_CELLS.has(cellId)) return;
 
     const clickedCell = board.find(c => c.id === cellId);
     if (!clickedCell) return;
 
     const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
+
+    // 移动端友好：拾取后可直接点目标格放下（无需拖拽释放）
+    if (movingShapeId) {
+      const rotationStep = shapeRotations[movingShapeId] ?? 0;
+      const clickedCenter = getTriangleCenter(clickedCell, triangleSize);
+      const bestSnap = findBestSnapPlacement(
+        movingShapeId,
+        clickedCenter.x,
+        clickedCenter.y,
+        rotationStep,
+        movingShapeId
+      );
+      const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, clickedTriangleId, movingShapeId, rotationStep);
+
+      if (mappedTriangles) {
+        const movingId = movingShapeId;
+        setBoard(prevBoard =>
+          prevBoard.map(cell => {
+            const id = parseInt(cell.id.replace('cell-', ''));
+            let nextShapeIds = cell.shapeIds.filter(shapeId => shapeId !== movingId);
+
+            if (mappedTriangles.includes(id)) {
+              nextShapeIds = [...nextShapeIds, movingId];
+            }
+
+            const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
+            return {
+              ...cell,
+              shapeIds: nextShapeIds,
+              filled: nextShapeIds.length > 0,
+              shapeId: nextTopShapeId,
+            };
+          })
+        );
+      }
+
+      setMovingShapeId(null);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
+      return;
+    }
 
     // 只有当从右侧选中了一个已定义的形状时，才能放置
     if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
@@ -227,56 +268,6 @@ const TriangleBoard: React.FC = () => {
     setSelectedShape(null);
   };
 
-  const handleCellMouseUp = (cellId: string) => {
-    if (!movingShapeId || DISABLED_CELLS.has(cellId)) return;
-
-    const targetTriangleId = parseInt(cellId.replace('cell-', ''));
-    const rotationStep = shapeRotations[movingShapeId] ?? 0;
-    const targetCell = board.find(c => c.id === cellId);
-    const targetCenter = targetCell ? getTriangleCenter(targetCell, triangleSize) : null;
-    const bestSnap = targetCenter
-      ? findBestSnapPlacement(movingShapeId, targetCenter.x, targetCenter.y, rotationStep, movingShapeId)
-      : null;
-    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, targetTriangleId, movingShapeId, rotationStep);
-
-    if (mappedTriangles) {
-      const movingId = movingShapeId;
-      setBoard(prevBoard =>
-        prevBoard.map(cell => {
-          const id = parseInt(cell.id.replace('cell-', ''));
-          let nextShapeIds = cell.shapeIds.filter(shapeId => shapeId !== movingId);
-
-          if (mappedTriangles.includes(id)) {
-            nextShapeIds = [...nextShapeIds, movingId];
-          }
-
-          const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
-          return {
-            ...cell,
-            shapeIds: nextShapeIds,
-            filled: nextShapeIds.length > 0,
-            shapeId: nextTopShapeId,
-          };
-        })
-      );
-    }
-
-    setMovingShapeId(null);
-    setHoveredTriangleId(null);
-    setSnappedTriangles(null);
-  };
-
-  useEffect(() => {
-    const cancelMove = () => {
-      setMovingShapeId(null);
-      setHoveredTriangleId(null);
-      setSnappedTriangles(null);
-    };
-
-    window.addEventListener('mouseup', cancelMove);
-    return () => window.removeEventListener('mouseup', cancelMove);
-  }, []);
-
   const handleShapeSelect = (shapeId: number) => {
     setSelectedShape(selectedShape === shapeId ? null : shapeId);
   };
@@ -286,6 +277,7 @@ const TriangleBoard: React.FC = () => {
       ...prev,
       [shapeId]: ((prev[shapeId] ?? 0) + 1) % 6,
     }));
+    setSnappedTriangles(null);
   };
 
   useEffect(() => {
@@ -664,8 +656,7 @@ const TriangleBoard: React.FC = () => {
                       stroke="none"
                       strokeWidth="0"
                       className="triangle-cell"
-                      onMouseDown={() => handleCellMouseDown(cell.id)}
-                      onMouseUp={() => handleCellMouseUp(cell.id)}
+                      onPointerDown={() => handleCellMouseDown(cell.id)}
                       onClick={() => handleCellClick(cell.id)}
                       style={{
                         cursor: isDisabled
@@ -786,6 +777,26 @@ const TriangleBoard: React.FC = () => {
       </div>
 
       <div className="game-footer">
+        {activeShapeForRotate && (
+          <button
+            className="btn btn-secondary"
+            onClick={() => rotateShape(activeShapeForRotate)}
+          >
+            Rotate 60°
+          </button>
+        )}
+        {movingShapeId && (
+          <button
+            className="btn btn-secondary"
+            onClick={() => {
+              setMovingShapeId(null);
+              setHoveredTriangleId(null);
+              setSnappedTriangles(null);
+            }}
+          >
+            Cancel Move
+          </button>
+        )}
         <button className="btn btn-primary" onClick={() => {
           setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
           setSelectedShape(null);
