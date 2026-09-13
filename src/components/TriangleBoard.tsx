@@ -93,8 +93,7 @@ function buildLevelClearRecord(
     .sort((a, b) => a.cellId - b.cellId);
 
   const layoutSignature = JSON.stringify({ level, shapeLayouts, cellStacks });
-  const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  const hash = `${hashStringFNV1a(layoutSignature)}-${hashStringFNV1a(uniqueSeed)}`;
+  const hash = hashStringFNV1a(layoutSignature);
 
   return {
     level,
@@ -105,14 +104,21 @@ function buildLevelClearRecord(
   };
 }
 
-function persistLevelClearRecord(record: LevelClearRecord): void {
+function persistLevelClearRecord(record: LevelClearRecord): { exists: boolean } {
   try {
     const raw = window.localStorage.getItem(LEVEL_CLEAR_RECORDS_KEY);
     const existing = raw ? (JSON.parse(raw) as LevelClearRecord[]) : [];
+
+    if (existing.some(item => item.hash === record.hash)) {
+      return { exists: true };
+    }
+
     existing.push(record);
     window.localStorage.setItem(LEVEL_CLEAR_RECORDS_KEY, JSON.stringify(existing));
+    return { exists: false };
   } catch {
     // Ignore storage failures in private mode or restricted environments.
+    return { exists: false };
   }
 }
 
@@ -203,8 +209,8 @@ const TriangleBoard: React.FC = () => {
     const allowed = board.filter(cell => !DISABLED_CELLS.has(cell.id));
     if (allowed.length > 0 && allowed.every(cell => cell.filled)) {
       const record = buildLevelClearRecord(board, shapeRotations, shapeFlips, level);
-      persistLevelClearRecord(record);
-      console.info('Level clear record:', record);
+      const persistResult = persistLevelClearRecord(record);
+      console.info('Level clear record:', record, 'existingSolution:', persistResult.exists);
 
       alert(`🎉 Level ${level} Complete!`);
       setLevel(level + 1);
