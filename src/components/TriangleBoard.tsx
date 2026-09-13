@@ -59,6 +59,8 @@ const TriangleBoard: React.FC = () => {
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
   const [draggingShape, setDraggingShape] = useState(false);
   const [dragStartPoint, setDragStartPoint] = useState<{ x: number; y: number } | null>(null);
+  const [panelPointerShapeId, setPanelPointerShapeId] = useState<number | null>(null);
+  const [draggingFromPanel, setDraggingFromPanel] = useState(false);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
@@ -172,7 +174,7 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleCellClick = (cellId: string) => {
-    if (movingShapeId) return;
+    if (movingShapeId || selectedShape) return;
     if (DISABLED_CELLS.has(cellId)) return;
 
     const clickedCell = board.find(c => c.id === cellId);
@@ -180,41 +182,7 @@ const TriangleBoard: React.FC = () => {
 
     const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
 
-    // 只有当从右侧选中了一个已定义的形状时，才能放置
-    if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
-
-    const rotationStep = shapeRotations[selectedShape] ?? 0;
-    const clickedCenter = getTriangleCenter(clickedCell, triangleSize);
-    const bestSnap = findBestSnapPlacement(
-      selectedShape,
-      clickedCenter.x,
-      clickedCenter.y,
-      rotationStep
-    );
-    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(selectedShape, clickedTriangleId, undefined, rotationStep);
-    if (mappedTriangles) {
-      setBoard(prevBoard =>
-        prevBoard.map(cell => {
-          const id = parseInt(cell.id.replace('cell-', ''));
-          if (!mappedTriangles.includes(id)) return cell;
-
-          const nextShapeIds = cell.shapeIds.includes(selectedShape)
-            ? cell.shapeIds
-            : [...cell.shapeIds, selectedShape];
-
-          return {
-            ...cell,
-            shapeIds: nextShapeIds,
-            filled: nextShapeIds.length > 0,
-            shapeId: nextShapeIds[nextShapeIds.length - 1],
-          };
-        })
-      );
-      // 放置成功后，清除选择
-      setSelectedShape(null);
-      setHoveredTriangleId(null);
-      setSnappedTriangles(null);
-    }
+    void clickedTriangleId;
   };
 
   const handleCellMouseDown = (cellId: string) => {
@@ -238,6 +206,52 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleCellPointerUp = (cellId: string) => {
+    if (selectedShape && draggingFromPanel) {
+      const cell = board.find(c => c.id === cellId);
+      if (!cell) return;
+
+      const rotationStep = shapeRotations[selectedShape] ?? 0;
+      const clickedCenter = getTriangleCenter(cell, triangleSize);
+      const bestSnap = findBestSnapPlacement(
+        selectedShape,
+        clickedCenter.x,
+        clickedCenter.y,
+        rotationStep
+      );
+      const mappedTriangles =
+        snappedTriangles ??
+        bestSnap?.mappedTriangles ??
+        getMappedTriangles(selectedShape, parseInt(cellId.replace('cell-', '')), undefined, rotationStep);
+
+      if (mappedTriangles) {
+        setBoard(prevBoard =>
+          prevBoard.map(item => {
+            const id = parseInt(item.id.replace('cell-', ''));
+            if (!mappedTriangles.includes(id)) return item;
+
+            const nextShapeIds = item.shapeIds.includes(selectedShape)
+              ? item.shapeIds
+              : [...item.shapeIds, selectedShape];
+
+            return {
+              ...item,
+              shapeIds: nextShapeIds,
+              filled: nextShapeIds.length > 0,
+              shapeId: nextShapeIds[nextShapeIds.length - 1],
+            };
+          })
+        );
+      }
+
+      setSelectedShape(null);
+      setPanelPointerShapeId(null);
+      setDraggingFromPanel(false);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
+      setDragStartPoint(null);
+      return;
+    }
+
     if (!movingShapeId) return;
 
     const cell = board.find(c => c.id === cellId);
@@ -357,15 +371,26 @@ const TriangleBoard: React.FC = () => {
     setMovingShapeId(shapeId);
   };
 
-  const handleShapeSelect = (shapeId: number) => {
+  const handleShapeCardPointerDown = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
     if (movingShapeId) return;
 
-    if (selectedShape === shapeId) {
+    setPanelPointerShapeId(shapeId);
+    setSelectedShape(shapeId);
+    setDraggingFromPanel(false);
+    setDragStartPoint({ x: event.clientX, y: event.clientY });
+    setSnappedTriangles(null);
+  };
+
+  const handleShapeCardPointerUp = (shapeId: number) => {
+    if (panelPointerShapeId !== shapeId) return;
+
+    if (!draggingFromPanel) {
       rotateShape(shapeId);
-      return;
     }
 
-    setSelectedShape(shapeId);
+    setPanelPointerShapeId(null);
+    setDraggingFromPanel(false);
+    setDragStartPoint(null);
   };
 
   const rotateShape = (shapeId: number) => {
@@ -665,6 +690,14 @@ const TriangleBoard: React.FC = () => {
   const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
 
+    if (selectedShape && panelPointerShapeId && dragStartPoint && !draggingFromPanel) {
+      const dx = event.clientX - dragStartPoint.x;
+      const dy = event.clientY - dragStartPoint.y;
+      if (dx * dx + dy * dy > 36) {
+        setDraggingFromPanel(true);
+      }
+    }
+
     if (movingShapeId && dragStartPoint && !draggingShape) {
       const dx = event.clientX - dragStartPoint.x;
       const dy = event.clientY - dragStartPoint.y;
@@ -847,7 +880,8 @@ const TriangleBoard: React.FC = () => {
                   key={idx + 1}
                   type="button"
                   className={`shape-card ${isSelected ? 'selected' : ''}`}
-                  onClick={() => handleShapeSelect(idx + 1)}
+                  onPointerDown={event => handleShapeCardPointerDown(event, idx + 1)}
+                  onPointerUp={() => handleShapeCardPointerUp(idx + 1)}
                   onContextMenu={event => {
                     event.preventDefault();
                     rotateShape(idx + 1);
