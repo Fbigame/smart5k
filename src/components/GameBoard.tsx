@@ -1,7 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import ShapeRenderer from './ShapeRenderer';
-import { SHAPES, ShapeDefinition } from '../utils/shapeDefinitions';
+import { SHAPES } from '../utils/shapeDefinitions';
 import './GameBoard.css';
+
+interface ShapeDefinition {
+  id: number;
+  name: string;
+  description: string;
+  triangles: number[];
+  rotations?: number;
+}
 
 // 每个形状对应的颜色
 const SHAPE_COLORS = [
@@ -124,12 +132,10 @@ const GameBoard: React.FC = () => {
                 className={`shape-button ${selectedShape === shape.id ? 'selected' : ''}`}
                 onClick={() => handleShapeSelect(shape.id)}
                 title={shape.description}
+                style={{
+                  backgroundColor: SHAPE_COLORS[index],
+                }}
               >
-                <ShapeRenderer
-                  shape={shape}
-                  color={SHAPE_COLORS[index]}
-                  size={60}
-                />
                 <span className="shape-name">{shape.name}</span>
               </div>
             ))}

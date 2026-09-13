@@ -1,5 +1,7 @@
 .shape-renderer {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
   transition: all 0.2s ease;
 }
@@ -12,3 +14,27 @@
 .shape-renderer:active {
   transform: scale(0.98);
 }
+
+.shape-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 2px;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.shape-cell {
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.shape-cell.filled {
+  opacity: 1;
+}
+
+.shape-cell:not(.filled) {
+  opacity: 0.1;
+}
+
