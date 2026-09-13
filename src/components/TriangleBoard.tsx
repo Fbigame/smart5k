@@ -102,13 +102,14 @@ const TriangleBoard: React.FC = () => {
     }
   };
 
-  const h = (35 * Math.sqrt(3)) / 2;
+  const triangleSize = 50; // 三角形的边长
+  const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
-  const svgWidth = 18 * 35 / 2 + 40;
+  const svgWidth = 18 * triangleSize / 2 + 40;
 
   // 限制最大尺寸，占用左侧2/3空间
-  const displayWidth = Math.min(svgWidth, 500);
-  const displayHeight = Math.min(svgHeight, 580);
+  const displayWidth = Math.min(svgWidth, 650);
+  const displayHeight = Math.min(svgHeight, 750);
 
   return (
     <div className="game-container">
@@ -143,7 +144,7 @@ const TriangleBoard: React.FC = () => {
                 }
 
                 // 计算三角形中心用于显示编号
-                const coords = getTriangleCoords(cell).split(' ');
+                const coords = getTriangleCoords(cell, triangleSize).split(' ');
                 const points = coords.map(c => c.split(',').map(Number));
                 const centerX = (points[0][0] + points[1][0] + points[2][0]) / 3;
                 const centerY = (points[0][1] + points[1][1] + points[2][1]) / 3;
@@ -152,7 +153,7 @@ const TriangleBoard: React.FC = () => {
                 return (
                   <g key={cell.id}>
                     <polygon
-                      points={getTriangleCoords(cell)}
+                      points={getTriangleCoords(cell, triangleSize)}
                       fill={fill}
                       stroke={stroke}
                       strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
@@ -210,7 +211,7 @@ const TriangleBoard: React.FC = () => {
                     return (
                       <polygon
                         key={cell.id}
-                        points={getTriangleCoords(cell)}
+                        points={getTriangleCoords(cell, 15)}
                         fill={color}
                         stroke="#333"
                         strokeWidth="1"
