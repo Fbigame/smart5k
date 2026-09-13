@@ -291,7 +291,7 @@ function App() {
       {page === 'solutions' && (
         <section className="solutions-page">
           <div className="solutions-head">
-            <div>
+            <div className="solutions-title-row">
               <h2>解法列表（按首次通关）</h2>
               <p>共 {totalSolutions} 条</p>
             </div>
