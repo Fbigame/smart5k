@@ -46,6 +46,20 @@ const SHAPE_COLORS = [
   '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0A1', '#E59866', '#AED6F1',
 ];
 
+const getShapeOutlineColor = (hexColor: string): string => {
+  const hex = hexColor.replace('#', '');
+  if (hex.length !== 6) return '#1f4f7f';
+
+  const r = Math.max(0, Math.min(255, parseInt(hex.slice(0, 2), 16)));
+  const g = Math.max(0, Math.min(255, parseInt(hex.slice(2, 4), 16)));
+  const b = Math.max(0, Math.min(255, parseInt(hex.slice(4, 6), 16)));
+
+  const darken = (value: number) => Math.max(0, Math.round(value * 0.6));
+  const toHex = (value: number) => value.toString(16).padStart(2, '0');
+
+  return `#${toHex(darken(r))}${toHex(darken(g))}${toHex(darken(b))}`;
+};
+
 const MIRROR_SYMMETRIC_SHAPE_IDS = new Set([1, 2, 5, 6, 11]);
 const LEVEL_CLEAR_RECORDS_KEY = 'triangle-level-clear-records';
 
@@ -1262,6 +1276,9 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                   }}
                   title="点击打开菜单：旋转 / 翻转"
                 >
+                  {(() => {
+                    const outlineColor = getShapeOutlineColor(SHAPE_COLORS[idx]);
+                    return (
                   <svg
                     width={panelPreviewCanvasSize}
                     height={panelPreviewCanvasSize}
@@ -1279,9 +1296,9 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                             height="124%"
                             colorInterpolationFilters="sRGB"
                           >
-                            <feMorphology in="SourceAlpha" operator="dilate" radius="1.15" result="dilated" />
+                            <feMorphology in="SourceAlpha" operator="dilate" radius="2" result="dilated" />
                             <feComposite in="dilated" in2="SourceAlpha" operator="out" result="ring" />
-                            <feFlood floodColor="rgba(19, 69, 116, 0.62)" result="ringColor" />
+                            <feFlood floodColor={outlineColor} floodOpacity="0.9" result="ringColor" />
                             <feComposite in="ringColor" in2="ring" operator="in" result="coloredRing" />
                             <feMerge>
                               <feMergeNode in="coloredRing" />
@@ -1325,6 +1342,8 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                       </>
                     ) : null}
                   </svg>
+                    );
+                  })()}
                 </button>
               );
             })}
