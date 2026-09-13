@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import TriangleBoard, { type LevelClearRecord } from './components/TriangleBoard'
+import AppHeader from './components/AppHeader'
 import './App.css'
 
 interface LayoutDetails {
@@ -377,25 +378,18 @@ function App() {
 
   return (
     <main className="app-shell">
+      <AppHeader
+        page={page}
+        loading={loading}
+        totalSolutions={stats.totalSolutions}
+        started={started}
+        onOpenSolutions={openSolutionsPage}
+        onStartGame={() => setStarted(true)}
+        onBackHome={backToHome}
+      />
+
       {page === 'home' && (
         <>
-          <section className="lobby-card">
-            <div className="lobby-copy">
-              <p className="lobby-label">Smart5k Puzzle</p>
-              <h1 className="lobby-title">智力五千通</h1>
-              <p className="lobby-subtitle">一个拥有 5000 多种解法的图形拼放挑战，每一步都可能通向全新的通关路径。</p>
-            </div>
-            <div className="lobby-stats">
-              <button type="button" className="stat-item stat-link" onClick={openSolutionsPage}>
-                <span>总解法数量（点击查看）</span>
-                <strong>{loading ? '...' : stats.totalSolutions}</strong>
-              </button>
-            </div>
-            <button type="button" className="start-btn" onClick={() => setStarted(true)}>
-              {started ? '继续游戏' : '开始游戏'}
-            </button>
-          </section>
-
           {started && (
             <section className="game-stage">
               <TriangleBoard onLevelCleared={handleLevelCleared} />
@@ -412,7 +406,6 @@ function App() {
               <span className="solutions-subtitle">（按首次通关）</span>
               <p>共 {totalSolutions} 条</p>
             </div>
-            <button type="button" className="ghost-btn" onClick={backToHome}>返回首页</button>
           </div>
           {solutions.length === 0 ? (
             <p className="empty-tip">还没有解法记录，快成为第一个通关者。</p>
