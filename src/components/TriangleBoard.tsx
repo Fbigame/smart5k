@@ -108,24 +108,51 @@ const TriangleBoard: React.FC = () => {
     const shapeTriangles = SHAPES[shapeId - 1].triangles;
     const placements: number[][] = [];
     
-    // 对每个未禁用的三角形，检查是否可以作为这个形状的"起点"
-    for (let i = 0; i < 81; i++) {
-      if (DISABLED_CELLS.has(`cell-${i}`)) continue;
+    // 获取形状的基准三角形（第一个三角形）的行列坐标
+    const baseCell = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
+    if (!baseCell) return [];
+    
+    // 计算形状中其他三角形相对于基准三角形的相对坐标
+    const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
+    for (const triangleId of shapeTriangles) {
+      const cell = board.find(c => c.id === `cell-${triangleId}`);
+      if (cell) {
+        relativePositions.push({
+          row: cell.row - baseCell.row,
+          col: cell.col - baseCell.col,
+          direction: cell.direction
+        });
+      }
+    }
+    
+    // 对每个有效的起始三角形，应用相同的相对位置
+    for (const centerCell of board) {
+      if (DISABLED_CELLS.has(centerCell.id) || centerCell.filled) continue;
       
-      // 计算如果以这个三角形作为偏移基准，形状会占据哪些位置
-      // 当前简化方法：检查是否可以直接应用相同的偏移
-      const offset = shapeTriangles[0] - i;
-      const mappedTriangles = shapeTriangles.map(t => t - offset);
+      // 计算这个中心位置的所有三角形
+      const mappedTriangles: number[] = [];
+      let allValid = true;
       
-      // 检查所有映射的三角形是否都有效且未被禁用或已填充
-      const allValid = mappedTriangles.every(t => {
-        if (t < 0 || t > 80) return false;
-        if (DISABLED_CELLS.has(`cell-${t}`)) return false;
-        const cell = board.find(c => c.id === `cell-${t}`);
-        return cell && !cell.filled;
-      });
+      for (const relPos of relativePositions) {
+        const targetRow = centerCell.row + relPos.row;
+        const targetCol = centerCell.col + relPos.col;
+        
+        // 找到对应的三角形
+        const targetCell = board.find(c => 
+          c.row === targetRow && 
+          c.col === targetCol && 
+          c.direction === relPos.direction
+        );
+        
+        if (!targetCell || DISABLED_CELLS.has(targetCell.id) || targetCell.filled) {
+          allValid = false;
+          break;
+        }
+        
+        mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
+      }
       
-      if (allValid) {
+      if (allValid && mappedTriangles.length === shapeTriangles.length) {
         placements.push(mappedTriangles);
       }
     }
