@@ -52,6 +52,7 @@ const DISABLED_CELLS = new Set<string>();
 const TriangleBoard: React.FC = () => {
   const [board, setBoard] = useState<TriangleCell[]>([]);
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
+  const [hoveredTriangleId, setHoveredTriangleId] = useState<number | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
 
@@ -75,25 +76,59 @@ const TriangleBoard: React.FC = () => {
   }, [board, level]);
 
   const handleCellClick = (cellId: string) => {
-    if (!selectedShape || DISABLED_CELLS.has(cellId)) return;
+    if (!selectedShape || !hoveredTriangleId || DISABLED_CELLS.has(cellId)) return;
     
-    const cellNum = parseInt(cellId.replace('cell-', ''));
-    const validPlacements = getValidPlacements(selectedShape);
+    // 获取基准三角形
+    const shapeTriangles = SHAPES[selectedShape - 1]?.triangles || [];
+    const baseCellRef = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
+    const hoveredCell = board.find(c => c.id === `cell-${hoveredTriangleId}`);
     
-    // 查找包含这个三角形的有效放置
-    for (const placement of validPlacements) {
-      if (placement.includes(cellNum)) {
-        // 填充这个放置中的所有三角形
-        setBoard(prevBoard =>
-          prevBoard.map(cell => {
-            const id = parseInt(cell.id.replace('cell-', ''));
-            return placement.includes(id) && !cell.filled
-              ? { ...cell, filled: true, shapeId: selectedShape }
-              : cell;
-          })
-        );
-        return;
+    if (!baseCellRef || !hoveredCell) return;
+    
+    // 计算相对位置
+    const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
+    for (const triangleId of shapeTriangles) {
+      const cell = board.find(c => c.id === `cell-${triangleId}`);
+      if (cell) {
+        relativePositions.push({
+          row: cell.row - baseCellRef.row,
+          col: cell.col - baseCellRef.col,
+          direction: cell.direction
+        });
       }
+    }
+    
+    // 应用相对位置到鼠标悬停位置
+    const mappedTriangles: number[] = [];
+    let allValid = true;
+    
+    for (const relPos of relativePositions) {
+      const targetRow = hoveredCell.row + relPos.row;
+      const targetCol = hoveredCell.col + relPos.col;
+      
+      const targetCell = board.find(c => 
+        c.row === targetRow && 
+        c.col === targetCol && 
+        c.direction === relPos.direction
+      );
+      
+      if (!targetCell || DISABLED_CELLS.has(targetCell.id) || targetCell.filled) {
+        allValid = false;
+        break;
+      }
+      
+      mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
+    }
+    
+    if (allValid) {
+      setBoard(prevBoard =>
+        prevBoard.map(cell => {
+          const id = parseInt(cell.id.replace('cell-', ''));
+          return mappedTriangles.includes(id)
+            ? { ...cell, filled: true, shapeId: selectedShape }
+            : cell;
+        })
+      );
     }
   };
 
@@ -222,7 +257,15 @@ const TriangleBoard: React.FC = () => {
                 const cellNum = parseInt(cell.id.replace('cell-', ''));
 
                 return (
-                  <g key={cell.id}>
+                  <g 
+                    key={cell.id}
+                    onMouseEnter={() => {
+                      if (selectedShape) {
+                        setHoveredTriangleId(parseInt(cell.id.replace('cell-', '')));
+                      }
+                    }}
+                    onMouseLeave={() => setHoveredTriangleId(null)}
+                  >
                     <polygon
                       points={getTriangleCoords(cell, triangleSize)}
                       fill={fill}
@@ -249,28 +292,69 @@ const TriangleBoard: React.FC = () => {
                 );
               })}
 
-              {/* 虚拟形状显示 - 显示所有可能的放置位置 */}
-              {selectedShape && (
+              {/* 虚拟形状显示 - 跟随鼠标 */}
+              {selectedShape && hoveredTriangleId !== null && SHAPES[selectedShape - 1] && (
                 (() => {
-                  const validPlacements = getValidPlacements(selectedShape);
-                  return validPlacements.map((placement, idx) => 
-                    placement.map(triangleId => {
-                      const cell = board.find(c => c.id === `cell-${triangleId}`);
-                      if (!cell) return null;
-                      
-                      return (
-                        <polygon
-                          key={`virtual-${idx}-${triangleId}`}
-                          points={getTriangleCoords(cell, triangleSize)}
-                          fill={SHAPE_COLORS[selectedShape - 1]}
-                          stroke={SHAPE_COLORS[selectedShape - 1]}
-                          strokeWidth="1"
-                          opacity="0.2"
-                          pointerEvents="none"
-                        />
-                      );
-                    })
-                  );
+                  const baseCell = board.find(c => c.id === `cell-${hoveredTriangleId}`);
+                  if (!baseCell) return null;
+                  
+                  const shapeTriangles = SHAPES[selectedShape - 1].triangles;
+                  const baseCellRef = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
+                  if (!baseCellRef) return null;
+                  
+                  // 计算相对位置
+                  const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
+                  for (const triangleId of shapeTriangles) {
+                    const cell = board.find(c => c.id === `cell-${triangleId}`);
+                    if (cell) {
+                      relativePositions.push({
+                        row: cell.row - baseCellRef.row,
+                        col: cell.col - baseCellRef.col,
+                        direction: cell.direction
+                      });
+                    }
+                  }
+                  
+                  // 应用相对位置到当前鼠标悬停位置
+                  const mappedTriangles: number[] = [];
+                  let allValid = true;
+                  
+                  for (const relPos of relativePositions) {
+                    const targetRow = baseCell.row + relPos.row;
+                    const targetCol = baseCell.col + relPos.col;
+                    
+                    const targetCell = board.find(c => 
+                      c.row === targetRow && 
+                      c.col === targetCol && 
+                      c.direction === relPos.direction
+                    );
+                    
+                    if (!targetCell || DISABLED_CELLS.has(targetCell.id) || targetCell.filled) {
+                      allValid = false;
+                      break;
+                    }
+                    
+                    mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
+                  }
+                  
+                  if (!allValid) return null;
+                  
+                  return mappedTriangles.map(triangleId => {
+                    const cell = board.find(c => c.id === `cell-${triangleId}`);
+                    if (!cell) return null;
+                    
+                    return (
+                      <polygon
+                        key={`follow-${triangleId}`}
+                        points={getTriangleCoords(cell, triangleSize)}
+                        fill={SHAPE_COLORS[selectedShape - 1]}
+                        stroke={SHAPE_COLORS[selectedShape - 1]}
+                        strokeWidth="2"
+                        opacity="0.4"
+                        pointerEvents="none"
+                      />
+                    );
+                  });
                 })()
               )}
             </svg>
