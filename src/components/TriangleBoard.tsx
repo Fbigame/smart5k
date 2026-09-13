@@ -271,13 +271,18 @@ const TriangleBoard: React.FC = () => {
   };
 
   const triangleSize = 65; // 三角形的边长
+  const panelPreviewScale = 0.62;
+  const panelPreviewTriangleSize = triangleSize * panelPreviewScale;
   const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
-  const rightPreviewCanvasSize = 220;
-  const rightPreviewCenterX = rightPreviewCanvasSize / 2;
-  const rightPreviewCenterY = 72;
+  const panelPreviewCanvasSize = 140;
+  const panelPreviewCenterX = panelPreviewCanvasSize / 2;
+  const panelPreviewCenterY = 48;
+  const carryPreviewCanvasSize = 220;
+  const carryPreviewCenterX = carryPreviewCanvasSize / 2;
+  const carryPreviewCenterY = 72;
 
   useEffect(() => {
     if (!activePreviewShapeId) {
@@ -482,9 +487,9 @@ const TriangleBoard: React.FC = () => {
                   onClick={() => handleShapeSelect(idx + 1)}
                 >
                   <svg
-                    width={rightPreviewCanvasSize}
-                    height={rightPreviewCanvasSize}
-                    viewBox={`0 0 ${rightPreviewCanvasSize} ${rightPreviewCanvasSize}`}
+                    width={panelPreviewCanvasSize}
+                    height={panelPreviewCanvasSize}
+                    viewBox={`0 0 ${panelPreviewCanvasSize} ${panelPreviewCanvasSize}`}
                     preserveAspectRatio="xMidYMid meet"
                   >
                     {shape ? (
@@ -504,9 +509,9 @@ const TriangleBoard: React.FC = () => {
                                   points={getPreviewTriangleCoords(
                                     cell,
                                     baseCell,
-                                    triangleSize,
-                                    rightPreviewCenterX,
-                                    rightPreviewCenterY
+                                    panelPreviewTriangleSize,
+                                    panelPreviewCenterX,
+                                    panelPreviewCenterY
                                   )}
                                   fill={color}
                                   stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
@@ -546,9 +551,9 @@ const TriangleBoard: React.FC = () => {
           }}
         >
           <svg
-            width={rightPreviewCanvasSize}
-            height={rightPreviewCanvasSize}
-            viewBox={`0 0 ${rightPreviewCanvasSize} ${rightPreviewCanvasSize}`}
+            width={carryPreviewCanvasSize}
+            height={carryPreviewCanvasSize}
+            viewBox={`0 0 ${carryPreviewCanvasSize} ${carryPreviewCanvasSize}`}
             preserveAspectRatio="xMidYMid meet"
           >
             {(() => {
@@ -571,8 +576,8 @@ const TriangleBoard: React.FC = () => {
                     cell,
                     baseCell,
                     triangleSize,
-                    rightPreviewCenterX,
-                    rightPreviewCenterY
+                    carryPreviewCenterX,
+                    carryPreviewCenterY
                   )}
                   fill={SHAPE_COLORS[activePreviewShapeId - 1]}
                   stroke={SHAPE_COLORS[activePreviewShapeId - 1]}
