@@ -736,7 +736,6 @@ const TriangleBoard: React.FC = () => {
                   }}
                   title="左键选中，右键旋转，R 键旋转当前选中图形"
                 >
-                  <span className="shape-rotation-label">{((shapeRotations[idx + 1] ?? 0) * 60) % 360}deg</span>
                   <svg
                     width={panelPreviewCanvasSize}
                     height={panelPreviewCanvasSize}

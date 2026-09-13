@@ -110,16 +110,6 @@
   height: auto;
 }
 
-.triangle-game-container .shape-rotation-label {
-  position: absolute;
-  top: 2px;
-  right: 4px;
-  font-size: 10px;
-  line-height: 1;
-  color: rgba(255, 255, 255, 0.85);
-  pointer-events: none;
-}
-
 .floating-shape-preview {
   position: fixed;
   pointer-events: none;
