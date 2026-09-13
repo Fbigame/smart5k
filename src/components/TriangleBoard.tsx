@@ -61,7 +61,6 @@ const TriangleBoard: React.FC = () => {
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
-  const activeShapeForRotate = movingShapeId ?? selectedShape;
 
   // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
   const placedShapes = useMemo(() => {
@@ -289,7 +288,14 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleShapeSelect = (shapeId: number) => {
-    setSelectedShape(selectedShape === shapeId ? null : shapeId);
+    if (movingShapeId) return;
+
+    if (selectedShape === shapeId) {
+      rotateShape(shapeId);
+      return;
+    }
+
+    setSelectedShape(shapeId);
   };
 
   const rotateShape = (shapeId: number) => {
@@ -297,6 +303,17 @@ const TriangleBoard: React.FC = () => {
       ...prev,
       [shapeId]: ((prev[shapeId] ?? 0) + 1) % 6,
     }));
+    setSnappedTriangles(null);
+  };
+
+  const handleShapeSectionPointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (!movingShapeId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    removeShapeFromBoard(movingShapeId);
+    setMovingShapeId(null);
+    setHoveredTriangleId(null);
     setSnappedTriangles(null);
   };
 
@@ -475,12 +492,12 @@ const TriangleBoard: React.FC = () => {
       return;
     }
 
-    const handleGlobalMouseMove = (event: MouseEvent) => {
+    const handleGlobalMouseMove = (event: PointerEvent) => {
       setCursorPosition({ x: event.clientX, y: event.clientY });
     };
 
-    window.addEventListener('mousemove', handleGlobalMouseMove);
-    return () => window.removeEventListener('mousemove', handleGlobalMouseMove);
+    window.addEventListener('pointermove', handleGlobalMouseMove);
+    return () => window.removeEventListener('pointermove', handleGlobalMouseMove);
   }, [activePreviewShapeId]);
 
   const cellCenters = useMemo(() => {
@@ -573,7 +590,7 @@ const TriangleBoard: React.FC = () => {
     return dx * dx + dy * dy;
   };
 
-  const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+  const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
 
     const rect = event.currentTarget.getBoundingClientRect();
@@ -651,7 +668,7 @@ const TriangleBoard: React.FC = () => {
               height={displayHeight}
               className="triangle-board"
               viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              onMouseMove={handleBoardMouseMove}
+              onPointerMove={handleBoardMouseMove}
               onMouseLeave={handleBoardMouseLeave}
             >
               {board.map(cell => {
@@ -725,7 +742,7 @@ const TriangleBoard: React.FC = () => {
         </div>
 
         {/* 右侧：形状选择与预览 */}
-        <div className="shape-section">
+        <div className="shape-section" onPointerUp={handleShapeSectionPointerUp}>
           <h2 className="shape-title">Shapes</h2>
           <div className="shapes-grid">
             {/* 显示12个形状的预览网格 */}
@@ -754,7 +771,7 @@ const TriangleBoard: React.FC = () => {
                     event.preventDefault();
                     rotateShape(idx + 1);
                   }}
-                  title="左键选中，右键旋转，R 键旋转当前选中图形"
+                  title="左键选中，再次点击旋转；右键也可旋转"
                 >
                   <svg
                     width={panelPreviewCanvasSize}
@@ -796,27 +813,6 @@ const TriangleBoard: React.FC = () => {
       </div>
 
       <div className="game-footer">
-        {activeShapeForRotate && (
-          <button
-            className="btn btn-secondary"
-            onClick={() => rotateShape(activeShapeForRotate)}
-          >
-            Rotate 60°
-          </button>
-        )}
-        {movingShapeId && (
-          <button
-            className="btn btn-secondary"
-            onClick={() => {
-              removeShapeFromBoard(movingShapeId);
-              setMovingShapeId(null);
-              setHoveredTriangleId(null);
-              setSnappedTriangles(null);
-            }}
-          >
-            Move Back
-          </button>
-        )}
         <button className="btn btn-primary" onClick={() => {
           setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
           setSelectedShape(null);
