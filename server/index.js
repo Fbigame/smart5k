@@ -11,6 +11,13 @@ const app = express();
 const port = 3001;
 const dataDir = path.join(__dirname, 'data');
 const recordsPath = path.join(dataDir, 'clear-records.json');
+const TOTAL_TRIANGLES = 81;
+const SHAPE_COUNT = 12;
+const TRIANGLES_PER_SHAPE = 6;
+const DISABLED_CELL_IDS = new Set([0, 49, 64, 65, 66, 63, 78, 79, 80]);
+const ALLOWED_CELL_IDS = new Set(
+  Array.from({ length: TOTAL_TRIANGLES }, (_, index) => index).filter(index => !DISABLED_CELL_IDS.has(index))
+);
 
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -119,6 +126,124 @@ function computeCanonicalSolutionHash(layoutDetails) {
   const signatureB = JSON.stringify(mirroredLayoutForHash);
   const canonicalSignature = signatureA < signatureB ? signatureA : signatureB;
   return hashStringFNV1a(canonicalSignature);
+}
+
+function validateClearLayout(layoutDetails) {
+  const shapeLayouts = Array.isArray(layoutDetails?.shapeLayouts) ? layoutDetails.shapeLayouts : [];
+  const cellStacks = Array.isArray(layoutDetails?.cellStacks) ? layoutDetails.cellStacks : [];
+
+  if (shapeLayouts.length !== SHAPE_COUNT) {
+    return { valid: false, reason: `shapeLayouts must contain exactly ${SHAPE_COUNT} items` };
+  }
+
+  if (cellStacks.length !== ALLOWED_CELL_IDS.size) {
+    return { valid: false, reason: `cellStacks must contain exactly ${ALLOWED_CELL_IDS.size} filled cells` };
+  }
+
+  const shapeIdSet = new Set();
+  const triangleOwnerMap = new Map();
+
+  for (const item of shapeLayouts) {
+    const shapeId = Number(item?.shapeId);
+    if (!Number.isInteger(shapeId) || shapeId < 1 || shapeId > SHAPE_COUNT) {
+      return { valid: false, reason: 'shapeId must be an integer in [1, 12]' };
+    }
+
+    if (shapeIdSet.has(shapeId)) {
+      return { valid: false, reason: 'shapeId must be unique in shapeLayouts' };
+    }
+    shapeIdSet.add(shapeId);
+
+    if (!Number.isInteger(Number(item?.rotation)) || Number(item?.rotation) < 0 || Number(item?.rotation) > 5) {
+      return { valid: false, reason: 'rotation must be an integer in [0, 5]' };
+    }
+
+    if (typeof item?.flipped !== 'boolean') {
+      return { valid: false, reason: 'flipped must be boolean' };
+    }
+
+    const triangles = Array.isArray(item?.triangles) ? item.triangles : [];
+    if (triangles.length !== TRIANGLES_PER_SHAPE) {
+      return { valid: false, reason: `shape ${shapeId} must have exactly ${TRIANGLES_PER_SHAPE} triangles` };
+    }
+
+    const perShapeTriangleSet = new Set();
+    for (const rawTriangleId of triangles) {
+      const triangleId = Number(rawTriangleId);
+      if (!Number.isInteger(triangleId) || triangleId < 0 || triangleId >= TOTAL_TRIANGLES) {
+        return { valid: false, reason: `triangleId ${rawTriangleId} is out of range` };
+      }
+
+      if (DISABLED_CELL_IDS.has(triangleId)) {
+        return { valid: false, reason: `triangleId ${triangleId} is disabled` };
+      }
+
+      if (perShapeTriangleSet.has(triangleId)) {
+        return { valid: false, reason: `shape ${shapeId} has duplicate triangleId ${triangleId}` };
+      }
+      perShapeTriangleSet.add(triangleId);
+
+      if (triangleOwnerMap.has(triangleId)) {
+        return { valid: false, reason: `triangleId ${triangleId} is assigned to multiple shapes` };
+      }
+      triangleOwnerMap.set(triangleId, shapeId);
+    }
+  }
+
+  if (shapeIdSet.size !== SHAPE_COUNT) {
+    return { valid: false, reason: 'all shapeIds 1..12 must be present exactly once' };
+  }
+
+  if (triangleOwnerMap.size !== ALLOWED_CELL_IDS.size) {
+    return { valid: false, reason: `total unique triangles must be exactly ${ALLOWED_CELL_IDS.size}` };
+  }
+
+  for (const allowedId of ALLOWED_CELL_IDS) {
+    if (!triangleOwnerMap.has(allowedId)) {
+      return { valid: false, reason: `allowed triangleId ${allowedId} is missing` };
+    }
+  }
+
+  const cellStackMap = new Map();
+  for (const item of cellStacks) {
+    const cellId = Number(item?.cellId);
+    if (!Number.isInteger(cellId) || !ALLOWED_CELL_IDS.has(cellId)) {
+      return { valid: false, reason: `cellId ${item?.cellId} is invalid or disabled` };
+    }
+
+    if (cellStackMap.has(cellId)) {
+      return { valid: false, reason: `cellId ${cellId} appears multiple times in cellStacks` };
+    }
+
+    const shapeIds = Array.isArray(item?.shapeIds) ? item.shapeIds.map(value => Number(value)).filter(Number.isFinite) : [];
+    if (shapeIds.length !== 1) {
+      return { valid: false, reason: `cellId ${cellId} must have exactly one shapeId in final clear state` };
+    }
+
+    const stackShapeId = shapeIds[0];
+    if (!Number.isInteger(stackShapeId) || stackShapeId < 1 || stackShapeId > SHAPE_COUNT) {
+      return { valid: false, reason: `cellId ${cellId} has invalid shapeId` };
+    }
+
+    cellStackMap.set(cellId, stackShapeId);
+  }
+
+  if (cellStackMap.size !== ALLOWED_CELL_IDS.size) {
+    return { valid: false, reason: `cellStacks must cover all ${ALLOWED_CELL_IDS.size} allowed cells` };
+  }
+
+  for (const allowedId of ALLOWED_CELL_IDS) {
+    const ownerShapeId = triangleOwnerMap.get(allowedId);
+    const stackedShapeId = cellStackMap.get(allowedId);
+    if (ownerShapeId !== stackedShapeId) {
+      return {
+        valid: false,
+        reason: `cellId ${allowedId} mismatch between shapeLayouts (${ownerShapeId}) and cellStacks (${stackedShapeId})`,
+      };
+    }
+  }
+
+  return { valid: true };
 }
 
 async function ensureDataFile() {
@@ -302,6 +427,12 @@ app.post('/api/clears', async (req, res) => {
     const store = await readStore();
     const nowIso = new Date().toISOString();
     const layoutDetails = extractLayoutDetails(record);
+    const validationResult = validateClearLayout(layoutDetails);
+    if (!validationResult.valid) {
+      res.status(400).json({ error: 'Invalid clear layout', reason: validationResult.reason });
+      return;
+    }
+
     const computedHash = computeCanonicalSolutionHash(layoutDetails);
     const solutionHash = typeof computedHash === 'string' && computedHash.length > 0
       ? computedHash
