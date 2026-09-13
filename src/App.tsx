@@ -59,11 +59,14 @@ function App() {
   return (
     <main className="app-shell">
       <section className="lobby-card">
-        <p className="lobby-label">Triangle Challenge</p>
-        <h1 className="lobby-title">通关记录中心</h1>
+        <div className="lobby-copy">
+          <p className="lobby-label">Triangle Challenge</p>
+          <h1 className="lobby-title">通关记录中心</h1>
+          <p className="lobby-subtitle">挑战速度与布局创意，每次通关都会自动记录。</p>
+        </div>
         <div className="lobby-stats">
           <div className="stat-item">
-            <span>通关次数</span>
+            <span>总通关次数</span>
             <strong>{loading ? '...' : stats.totalClears}</strong>
           </div>
           <div className="stat-item">
@@ -72,7 +75,7 @@ function App() {
           </div>
         </div>
         <button type="button" className="start-btn" onClick={() => setStarted(true)}>
-          开始游戏
+          {started ? '继续游戏' : '开始游戏'}
         </button>
       </section>
 
