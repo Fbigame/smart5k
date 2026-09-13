@@ -106,9 +106,9 @@ const TriangleBoard: React.FC = () => {
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * 35 / 2 + 40;
 
-  // 限制最大尺寸以确保右侧形状列表显示
-  const displayWidth = Math.min(svgWidth, 320);
-  const displayHeight = Math.min(svgHeight, 420);
+  // 限制最大尺寸，占用左侧2/3空间
+  const displayWidth = Math.min(svgWidth, 500);
+  const displayHeight = Math.min(svgHeight, 580);
 
   return (
     <div className="game-container">
