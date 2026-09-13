@@ -56,7 +56,6 @@ const TriangleBoard: React.FC = () => {
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
   const [, setHoveredTriangleId] = useState<number | null>(null);
   const [snappedTriangles, setSnappedTriangles] = useState<number[] | null>(null);
-  const [snappedScore, setSnappedScore] = useState<number | null>(null);
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
@@ -213,7 +212,6 @@ const TriangleBoard: React.FC = () => {
       setSelectedShape(null);
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
-      setSnappedScore(null);
     }
   };
 
@@ -226,7 +224,6 @@ const TriangleBoard: React.FC = () => {
     setMovingShapeId(cell.shapeId);
     setHoveredTriangleId(parseInt(cellId.replace('cell-', '')));
     setSnappedTriangles(null);
-    setSnappedScore(null);
     setSelectedShape(null);
   };
 
@@ -267,7 +264,6 @@ const TriangleBoard: React.FC = () => {
     setMovingShapeId(null);
     setHoveredTriangleId(null);
     setSnappedTriangles(null);
-    setSnappedScore(null);
   };
 
   useEffect(() => {
@@ -275,7 +271,6 @@ const TriangleBoard: React.FC = () => {
       setMovingShapeId(null);
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
-      setSnappedScore(null);
     };
 
     window.addEventListener('mouseup', cancelMove);
@@ -526,6 +521,25 @@ const TriangleBoard: React.FC = () => {
     return [...triangles].sort((a, b) => a - b).join('-');
   };
 
+  const getPlacementScoreAtMouse = (triangles: number[], mouseX: number, mouseY: number): number | null => {
+    if (triangles.length === 0) return null;
+
+    let sumX = 0;
+    let sumY = 0;
+    for (const triangleId of triangles) {
+      const center = centerById.get(triangleId);
+      if (!center) return null;
+      sumX += center.x;
+      sumY += center.y;
+    }
+
+    const centroidX = sumX / triangles.length;
+    const centroidY = sumY / triangles.length;
+    const dx = centroidX - mouseX;
+    const dy = centroidY - mouseY;
+    return dx * dx + dy * dy;
+  };
+
   const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
 
@@ -545,14 +559,12 @@ const TriangleBoard: React.FC = () => {
     if (!bestSnap) {
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
-      setSnappedScore(null);
       return;
     }
 
-    if (!snappedTriangles || snappedScore === null) {
+    if (!snappedTriangles) {
       setHoveredTriangleId(bestSnap.anchorId);
       setSnappedTriangles(bestSnap.mappedTriangles);
-      setSnappedScore(bestSnap.score);
       return;
     }
 
@@ -560,23 +572,27 @@ const TriangleBoard: React.FC = () => {
     const nextSig = getTrianglesSignature(bestSnap.mappedTriangles);
     if (prevSig === nextSig) {
       setHoveredTriangleId(bestSnap.anchorId);
-      setSnappedScore(bestSnap.score);
+      return;
+    }
+
+    const currentScore = getPlacementScoreAtMouse(snappedTriangles, mouseX, mouseY);
+    if (currentScore === null) {
+      setHoveredTriangleId(bestSnap.anchorId);
+      setSnappedTriangles(bestSnap.mappedTriangles);
       return;
     }
 
     // 吸附阻尼：新候选需要明显更优才切换，减少边缘抖动。
     const hysteresis = triangleSize * triangleSize * 0.35;
-    if (bestSnap.score + hysteresis < snappedScore) {
+    if (bestSnap.score + hysteresis < currentScore) {
       setHoveredTriangleId(bestSnap.anchorId);
       setSnappedTriangles(bestSnap.mappedTriangles);
-      setSnappedScore(bestSnap.score);
     }
   };
 
   const handleBoardMouseLeave = () => {
     setHoveredTriangleId(null);
     setSnappedTriangles(null);
-    setSnappedScore(null);
   };
 
   // 限制最大尺寸，占用左侧2/3空间
@@ -779,7 +795,6 @@ const TriangleBoard: React.FC = () => {
           setMovingShapeId(null);
           setHoveredTriangleId(null);
           setSnappedTriangles(null);
-          setSnappedScore(null);
         }}>
           Clear Board
         </button>
