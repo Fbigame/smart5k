@@ -81,25 +81,24 @@
 }
 
 .triangle-game-container .shape-card {
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  background: transparent;
   border-radius: 8px;
   padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition: transform 0.15s ease;
 }
 
 .triangle-game-container .shape-card:hover {
-  border-color: rgba(255, 255, 255, 0.85);
   transform: translateY(-1px);
 }
 
 .triangle-game-container .shape-card.selected {
-  border-color: #ffffff;
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.2);
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 1px;
 }
 
 .triangle-game-container .shape-card svg {
