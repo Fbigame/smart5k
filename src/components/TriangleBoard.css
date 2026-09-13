@@ -52,7 +52,7 @@
 }
 
 .triangle-game-container .shape-section {
-  flex: 0 0 300px;
+  flex: 0 0 460px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -87,7 +87,7 @@
   border: none;
   background: transparent;
   border-radius: 8px;
-  padding: 2px;
+  padding: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
