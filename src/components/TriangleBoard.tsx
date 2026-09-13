@@ -432,26 +432,21 @@ const TriangleBoard: React.FC = () => {
               }
               
               return (
-                <div
+                <svg
                   key={idx + 1}
-                  className={`shape-preview-item ${isSelected ? 'active' : ''}`}
+                  width="90"
+                  height="110"
+                  viewBox="0 0 200 250"
+                  preserveAspectRatio="xMidYMid meet"
                   onClick={() => handleShapeSelect(idx + 1)}
                   style={{
-                    border: isSelected ? `3px solid ${SHAPE_COLORS[idx]}` : `2px solid #ddd`,
-                    background: isSelected ? `${SHAPE_COLORS[idx]}22` : '#fff',
                     cursor: 'pointer',
-                    borderRadius: '8px',
-                    padding: '8px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '100px',
-                    transition: 'all 0.2s ease'
+                    filter: isSelected ? `drop-shadow(0 0 8px ${SHAPE_COLORS[idx]})` : 'none',
+                    transition: 'all 0.2s ease',
                   }}
                 >
                   {shape ? (
-                    <svg width="60" height="70" viewBox="0 0 160 180" preserveAspectRatio="xMidYMid meet">
+                    <>
                       {board
                         .filter(cell => shape.triangles.includes(parseInt(cell.id.replace('cell-', ''))))
                         .map(cell => {
@@ -459,19 +454,21 @@ const TriangleBoard: React.FC = () => {
                           return (
                             <polygon
                               key={cell.id}
-                              points={getTriangleCoords(cell, 20)}
+                              points={getTriangleCoords(cell, 30)}
                               fill={color}
-                              stroke="#333"
-                              strokeWidth="0.5"
-                              opacity="0.9"
+                              stroke={isSelected ? SHAPE_COLORS[idx] : '#999'}
+                              strokeWidth={isSelected ? "1.5" : "0.5"}
+                              opacity="0.95"
                             />
                           );
                         })}
-                    </svg>
+                    </>
                   ) : (
-                    <div style={{ fontSize: '32px', color: '#ccc' }}>?</div>
+                    <text x="100" y="125" textAnchor="middle" fontSize="48" fill="#ddd">
+                      ?
+                    </text>
                   )}
-                </div>
+                </svg>
               );
             })}
           </div>

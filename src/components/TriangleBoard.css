@@ -87,6 +87,11 @@
   padding-right: 8px;
 }
 
+.shapes-grid > svg {
+  display: block;
+  margin: 0 auto;
+}
+
 .shape-item {
   display: flex;
   align-items: center;
