@@ -1158,6 +1158,19 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   // 限制最大尺寸，占用左侧2/3空间
   const displayWidth = Math.min(svgWidth, 800);
   const displayHeight = Math.min(svgHeight, 900);
+  const visiblePlacedShapeCellsByShape = Array.from({ length: 12 }).map((_, index) => {
+    const shapeId = index + 1;
+    const cells = board.filter(cell => {
+      if (DISABLED_CELLS.has(cell.id) || cell.shapeIds.length === 0) return false;
+      const topShapeId = cell.shapeIds[cell.shapeIds.length - 1];
+      return topShapeId === shapeId;
+    });
+
+    return {
+      shapeId,
+      cells,
+    };
+  }).filter(item => item.cells.length > 0);
 
   return (
     <div className="game-container triangle-game-container">
@@ -1174,6 +1187,30 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
               onPointerMove={handleBoardMouseMove}
               onMouseLeave={handleBoardMouseLeave}
             >
+              <defs>
+                {Array.from({ length: 12 }).map((_, index) => {
+                  const shapeId = index + 1;
+                  const outlineColor = getShapeOutlineColor(SHAPE_COLORS[index]);
+
+                  return (
+                    <filter
+                      key={`board-shape-outline-filter-${shapeId}`}
+                      id={`board-shape-outline-${shapeId}`}
+                      x="-12%"
+                      y="-12%"
+                      width="124%"
+                      height="124%"
+                      colorInterpolationFilters="sRGB"
+                    >
+                      <feMorphology in="SourceAlpha" operator="dilate" radius="2.5" result="dilated" />
+                      <feComposite in="dilated" in2="SourceAlpha" operator="out" result="ring" />
+                      <feFlood floodColor={outlineColor} floodOpacity="0.9" result="ringColor" />
+                      <feComposite in="ringColor" in2="ring" operator="in" result="coloredRing" />
+                    </filter>
+                  );
+                })}
+              </defs>
+
               {board.map(cell => {
                 const isDisabled = DISABLED_CELLS.has(cell.id);
                 const topShapeId = cell.shapeIds.length > 0 ? cell.shapeIds[cell.shapeIds.length - 1] : undefined;
@@ -1215,6 +1252,21 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                   </g>
                 );
               })}
+
+              {visiblePlacedShapeCellsByShape.map(item => (
+                <g key={`board-outline-${item.shapeId}`} filter={`url(#board-shape-outline-${item.shapeId})`} pointerEvents="none">
+                  {item.cells.map(cell => (
+                    <polygon
+                      key={`board-outline-cell-${item.shapeId}-${cell.id}`}
+                      points={expandTrianglePoints(getTriangleCoords(cell, triangleSize), 0.55)}
+                      fill="#000"
+                      stroke="none"
+                      strokeWidth="0"
+                      opacity="1"
+                    />
+                  ))}
+                </g>
+              ))}
 
               {/* 虚拟形状显示 - 跟随鼠标 */}
               {activePreviewShapeId && snappedTriangles && SHAPES.find(s => s.id === activePreviewShapeId) && (

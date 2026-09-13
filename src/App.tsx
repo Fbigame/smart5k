@@ -44,6 +44,20 @@ const SHAPE_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F',
   '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0A1', '#E59866', '#AED6F1',
 ]
+
+function getShapeOutlineColor(hexColor: string): string {
+  const hex = hexColor.replace('#', '')
+  if (hex.length !== 6) return '#1f4f7f'
+
+  const r = Math.max(0, Math.min(255, parseInt(hex.slice(0, 2), 16)))
+  const g = Math.max(0, Math.min(255, parseInt(hex.slice(2, 4), 16)))
+  const b = Math.max(0, Math.min(255, parseInt(hex.slice(4, 6), 16)))
+
+  const darken = (value: number) => Math.max(0, Math.round(value * 0.6))
+  const toHex = (value: number) => value.toString(16).padStart(2, '0')
+
+  return `#${toHex(darken(r))}${toHex(darken(g))}${toHex(darken(b))}`
+}
 const DISABLED_CELLS = new Set([0, 49, 64, 65, 66, 63, 78, 79, 80])
 
 interface MiniTriangleCell {
@@ -234,12 +248,52 @@ function App() {
       }
     }
 
+    const placedCellsByShape = Array.from({ length: 12 }).map((_, index) => {
+      const shapeId = index + 1
+      const cells = MINI_BOARD_CELLS.filter(cell => {
+        if (DISABLED_CELLS.has(cell.id)) return false
+        const stack = stackMap.get(cell.id) ?? []
+        if (stack.length === 0) return false
+        const topShapeId = stack[stack.length - 1]
+        return topShapeId === shapeId
+      })
+
+      return {
+        shapeId,
+        cells,
+      }
+    }).filter(item => item.cells.length > 0)
+
     return (
       <svg
         className="solution-board-preview"
         viewBox={`0 0 ${svgWidth} ${svgHeight}`}
         preserveAspectRatio="xMidYMid meet"
       >
+        <defs>
+          {Array.from({ length: 12 }).map((_, index) => {
+            const shapeId = index + 1
+            const outlineColor = getShapeOutlineColor(SHAPE_COLORS[index])
+
+            return (
+              <filter
+                key={`detail-outline-filter-${shapeId}`}
+                id={`detail-shape-outline-${shapeId}`}
+                x="-12%"
+                y="-12%"
+                width="124%"
+                height="124%"
+                colorInterpolationFilters="sRGB"
+              >
+                <feMorphology in="SourceAlpha" operator="dilate" radius="2.5" result="dilated" />
+                <feComposite in="dilated" in2="SourceAlpha" operator="out" result="ring" />
+                <feFlood floodColor={outlineColor} floodOpacity="0.9" result="ringColor" />
+                <feComposite in="ringColor" in2="ring" operator="in" result="coloredRing" />
+              </filter>
+            )
+          })}
+        </defs>
+
         {MINI_BOARD_CELLS.map(cell => {
           const stack = stackMap.get(cell.id) ?? []
           const topShapeId = stack.length > 0 ? stack[stack.length - 1] : 0
@@ -261,6 +315,21 @@ function App() {
             />
           )
         })}
+
+        {placedCellsByShape.map(item => (
+          <g key={`detail-outline-${item.shapeId}`} filter={`url(#detail-shape-outline-${item.shapeId})`}>
+            {item.cells.map(cell => (
+              <polygon
+                key={`detail-outline-cell-${item.shapeId}-${cell.id}`}
+                points={getMiniTrianglePoints(cell, size)}
+                fill="#000"
+                stroke="none"
+                strokeWidth={0}
+                opacity={1}
+              />
+            ))}
+          </g>
+        ))}
       </svg>
     )
   }
