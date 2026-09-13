@@ -763,13 +763,12 @@ const TriangleBoard: React.FC = () => {
   };
 
   const triangleSize = 65; // 三角形的边长
-  const panelPreviewScale = 0.62;
-  const panelPreviewTriangleSize = triangleSize * panelPreviewScale;
+  const panelPreviewTriangleSize = triangleSize;
   const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
-  const panelPreviewCanvasSize = 140;
+  const panelPreviewCanvasSize = 240;
   const carryPreviewCanvasSize = 220;
 
   useEffect(() => {
@@ -1123,7 +1122,7 @@ const TriangleBoard: React.FC = () => {
                           panelPreviewCanvasSize,
                           10,
                           shapeRotations[shape.id] ?? 0,
-                          true,
+                          false,
                           shapeFlips[shape.id] ?? false
                         ).map(
                           (points, polygonIndex) => {
