@@ -179,6 +179,11 @@ const TriangleBoard: React.FC = () => {
 
     // 移动端友好：拾取后可直接点目标格放下（无需拖拽释放）
     if (movingShapeId) {
+      if (clickedCell.shapeIds.includes(movingShapeId)) {
+        rotatePlacedShapeAtCell(movingShapeId, cellId);
+        return;
+      }
+
       const rotationStep = shapeRotations[movingShapeId] ?? 0;
       const clickedCenter = getTriangleCenter(clickedCell, triangleSize);
       const bestSnap = findBestSnapPlacement(
@@ -256,6 +261,7 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleCellMouseDown = (cellId: string) => {
+    if (movingShapeId) return;
     if (DISABLED_CELLS.has(cellId)) return;
 
     const cell = board.find(c => c.id === cellId);
@@ -738,11 +744,6 @@ const TriangleBoard: React.FC = () => {
                       strokeWidth="0"
                       className="triangle-cell"
                       onPointerDown={() => handleCellMouseDown(cell.id)}
-                      onDoubleClick={() => {
-                        const shapeId = cell.shapeIds[cell.shapeIds.length - 1];
-                        if (!shapeId || selectedShape) return;
-                        rotatePlacedShapeAtCell(shapeId, cell.id);
-                      }}
                       onClick={() => handleCellClick(cell.id)}
                       style={{
                         cursor: isDisabled
