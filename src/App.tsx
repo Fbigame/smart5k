@@ -315,7 +315,7 @@ function App() {
                 height="124%"
                 colorInterpolationFilters="sRGB"
               >
-                <feMorphology in="SourceAlpha" operator="erode" radius="1.25" result="eroded" />
+                <feMorphology in="SourceAlpha" operator="erode" radius="0.75" result="eroded" />
                 <feComposite in="SourceAlpha" in2="eroded" operator="out" result="ring" />
                 <feFlood floodColor={outlineColor} floodOpacity="0.9" result="ringColor" />
                 <feComposite in="ringColor" in2="ring" operator="in" result="coloredRing" />
