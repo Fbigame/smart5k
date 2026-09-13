@@ -271,13 +271,15 @@ const TriangleBoard: React.FC = () => {
   };
 
   const triangleSize = 65; // 三角形的边长
+  const previewScale = 0.8;
+  const previewTriangleSize = triangleSize * previewScale;
   const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
-  const rightPreviewCanvasSize = 220;
+  const rightPreviewCanvasSize = 200;
   const rightPreviewCenterX = rightPreviewCanvasSize / 2;
-  const rightPreviewCenterY = 72;
+  const rightPreviewCenterY = 66;
 
   useEffect(() => {
     if (!activePreviewShapeId) {
@@ -504,7 +506,7 @@ const TriangleBoard: React.FC = () => {
                                   points={getPreviewTriangleCoords(
                                     cell,
                                     baseCell,
-                                    triangleSize,
+                                    previewTriangleSize,
                                     rightPreviewCenterX,
                                     rightPreviewCenterY
                                   )}
@@ -570,7 +572,7 @@ const TriangleBoard: React.FC = () => {
                   points={getPreviewTriangleCoords(
                     cell,
                     baseCell,
-                    triangleSize,
+                    previewTriangleSize,
                     rightPreviewCenterX,
                     rightPreviewCenterY
                   )}
