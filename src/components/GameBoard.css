@@ -31,9 +31,12 @@
 .game-content {
   display: flex;
   flex: 1;
-  gap: 2rem;
-  padding: 2rem;
+  gap: 1rem;
+  padding: 1.5rem;
+  min-height: 0;
   overflow: hidden;
+  justify-content: space-between;
+  flex-wrap: nowrap;
 }
 
 .board-wrapper {

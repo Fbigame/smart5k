@@ -106,6 +106,10 @@ const TriangleBoard: React.FC = () => {
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * 35 / 2 + 40;
 
+  // 限制最大尺寸以确保右侧形状列表显示
+  const displayWidth = Math.min(svgWidth, 320);
+  const displayHeight = Math.min(svgHeight, 420);
+
   return (
     <div className="game-container">
       <div className="game-header">
@@ -117,86 +121,116 @@ const TriangleBoard: React.FC = () => {
       </div>
 
       <div className="game-content">
-        <div className="board-wrapper">
-          <svg width={svgWidth} height={svgHeight} className="triangle-board" viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
-            {board.map(cell => {
-              const isDisabled = DISABLED_CELLS.has(cell.id);
-              let fill: string;
-              let stroke: string;
+        {/* 左侧：游戏棋盘 */}
+        <div className="board-section">
+          <div className="board-wrapper">
+            <svg width={displayWidth} height={displayHeight} className="triangle-board" viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+              {board.map(cell => {
+                const isDisabled = DISABLED_CELLS.has(cell.id);
+                let fill: string;
+                let stroke: string;
 
-              if (isDisabled) {
-                // 禁用的三角形显示为浅灰色
-                fill = '#d3d3d3';
-                stroke = '#aaa';
-              } else if (cell.filled) {
-                fill = SHAPE_COLORS[cell.shapeId ? cell.shapeId - 1 : 0];
-                stroke = '#ddd';
-              } else {
-                fill = '#fff';
-                stroke = '#999';
-              }
+                if (isDisabled) {
+                  // 禁用的三角形显示为浅灰色
+                  fill = '#d3d3d3';
+                  stroke = '#aaa';
+                } else if (cell.filled) {
+                  fill = SHAPE_COLORS[cell.shapeId ? cell.shapeId - 1 : 0];
+                  stroke = '#ddd';
+                } else {
+                  fill = '#fff';
+                  stroke = '#999';
+                }
 
-              // 计算三角形中心用于显示编号
-              const coords = getTriangleCoords(cell).split(' ');
-              const points = coords.map(c => c.split(',').map(Number));
-              const centerX = (points[0][0] + points[1][0] + points[2][0]) / 3;
-              const centerY = (points[0][1] + points[1][1] + points[2][1]) / 3;
-              const cellNum = parseInt(cell.id.replace('cell-', ''));
+                // 计算三角形中心用于显示编号
+                const coords = getTriangleCoords(cell).split(' ');
+                const points = coords.map(c => c.split(',').map(Number));
+                const centerX = (points[0][0] + points[1][0] + points[2][0]) / 3;
+                const centerY = (points[0][1] + points[1][1] + points[2][1]) / 3;
+                const cellNum = parseInt(cell.id.replace('cell-', ''));
 
-              return (
-                <g key={cell.id}>
-                  <polygon
-                    points={getTriangleCoords(cell)}
-                    fill={fill}
-                    stroke={stroke}
-                    strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
-                    className="triangle-cell"
-                    onClick={() => handleCellClick(cell.id)}
-                    style={{ cursor: !isDisabled && selectedShape && !cell.filled ? 'pointer' : 'default', pointerEvents: isDisabled ? 'none' : 'auto' }}
-                  />
-                  <text
-                    x={centerX}
-                    y={centerY}
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                    fontSize="10"
-                    fontWeight="bold"
-                    fill={isDisabled ? '#888' : '#333'}
-                    pointerEvents="none"
-                    style={{ userSelect: 'none' }}
-                  >
-                    {cellNum}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+                return (
+                  <g key={cell.id}>
+                    <polygon
+                      points={getTriangleCoords(cell)}
+                      fill={fill}
+                      stroke={stroke}
+                      strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
+                      className="triangle-cell"
+                      onClick={() => handleCellClick(cell.id)}
+                      style={{ cursor: !isDisabled && selectedShape && !cell.filled ? 'pointer' : 'default', pointerEvents: isDisabled ? 'none' : 'auto' }}
+                    />
+                    <text
+                      x={centerX}
+                      y={centerY}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      fontSize="10"
+                      fontWeight="bold"
+                      fill={isDisabled ? '#888' : '#333'}
+                      pointerEvents="none"
+                      style={{ userSelect: 'none' }}
+                    >
+                      {cellNum}
+                    </text>
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
         </div>
 
-        <div className="shape-selector">
-          <h2>Select Shape</h2>
-          <div className="shapes-grid">
+        {/* 右侧：形状选择与预览 */}
+        <div className="shape-section">
+          <h2>Shapes</h2>
+          <div className="shapes-list">
             {SHAPES.map((shape, index) => (
               <div
                 key={shape.id}
-                className={`shape-button ${selectedShape === shape.id ? 'selected' : ''}`}
+                className={`shape-item ${selectedShape === shape.id ? 'active' : ''}`}
                 onClick={() => handleShapeSelect(shape.id)}
-                style={{ backgroundColor: SHAPE_COLORS[index] }}
+                style={{ borderLeftColor: SHAPE_COLORS[index] }}
+                title={shape.description}
               >
-                <span className="shape-name">{shape.name}</span>
+                <span className="shape-id">{shape.id}</span>
+                <span className="shape-label">{shape.name}</span>
               </div>
             ))}
           </div>
+
+          {/* 形状预览 */}
+          {selectedShape && (
+            <div className="shape-preview">
+              <h3>Preview</h3>
+              <svg width="120" height="140" className="preview-board" viewBox="0 0 120 140">
+                {board
+                  .filter(cell => SHAPES[selectedShape - 1]?.triangles.includes(parseInt(cell.id.replace('cell-', ''))))
+                  .map(cell => {
+                    const color = SHAPE_COLORS[selectedShape - 1];
+                    return (
+                      <polygon
+                        key={cell.id}
+                        points={getTriangleCoords(cell)}
+                        fill={color}
+                        stroke="#333"
+                        strokeWidth="1"
+                      />
+                    );
+                  })}
+              </svg>
+            </div>
+          )}
+
+          <button className="btn btn-primary shape-clear-btn" onClick={() => {
+            setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
+            setSelectedShape(null);
+          }}>
+            Clear Board
+          </button>
         </div>
       </div>
 
       <div className="game-footer">
-        <button className="btn btn-primary" onClick={() => {
-          setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
-          setSelectedShape(null);
-        }}>
-          Clear Board
-        </button>
       </div>
     </div>
   );
