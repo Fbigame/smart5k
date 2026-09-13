@@ -270,6 +270,59 @@ const TriangleBoard: React.FC = () => {
     }
   };
 
+  const getFittedPreviewPolygons = (
+    triangleIds: number[],
+    size: number,
+    canvasSize: number,
+    padding: number
+  ): string[] => {
+    const shapeCells = triangleIds
+      .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
+      .filter((cell): cell is TriangleCell => Boolean(cell));
+
+    if (shapeCells.length !== triangleIds.length || shapeCells.length === 0) {
+      return [];
+    }
+
+    const baseCell = shapeCells[0];
+    const rawPolygons = shapeCells.map(cell =>
+      getPreviewTriangleCoords(cell, baseCell, size, 0, 0)
+    );
+
+    const rawPoints = rawPolygons.flatMap(poly =>
+      poly.split(' ').map(p => {
+        const [x, y] = p.split(',').map(Number);
+        return { x, y };
+      })
+    );
+
+    const minX = Math.min(...rawPoints.map(p => p.x));
+    const maxX = Math.max(...rawPoints.map(p => p.x));
+    const minY = Math.min(...rawPoints.map(p => p.y));
+    const maxY = Math.max(...rawPoints.map(p => p.y));
+
+    const rawWidth = Math.max(maxX - minX, 1);
+    const rawHeight = Math.max(maxY - minY, 1);
+    const available = Math.max(canvasSize - padding * 2, 1);
+    const scale = Math.min(available / rawWidth, available / rawHeight);
+
+    const fittedWidth = rawWidth * scale;
+    const fittedHeight = rawHeight * scale;
+    const offsetX = padding + (available - fittedWidth) / 2;
+    const offsetY = padding + (available - fittedHeight) / 2;
+
+    return rawPolygons.map(poly => {
+      const transformed = poly.split(' ').map(p => {
+        const [x, y] = p.split(',').map(Number);
+        const tx = (x - minX) * scale + offsetX;
+        const ty = (y - minY) * scale + offsetY;
+        return `${tx},${ty}`;
+      });
+
+      return transformed.join(' ');
+    });
+  };
+
   const triangleSize = 65; // 三角形的边长
   const panelPreviewScale = 0.62;
   const panelPreviewTriangleSize = triangleSize * panelPreviewScale;
@@ -278,8 +331,6 @@ const TriangleBoard: React.FC = () => {
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
   const panelPreviewCanvasSize = 140;
-  const panelPreviewCenterX = panelPreviewCanvasSize / 2;
-  const panelPreviewCenterY = 48;
   const carryPreviewCanvasSize = 220;
   const carryPreviewCenterX = carryPreviewCanvasSize / 2;
   const carryPreviewCenterY = 72;
@@ -494,33 +545,21 @@ const TriangleBoard: React.FC = () => {
                   >
                     {shape ? (
                       <>
-                        {(() => {
-                          const shapeTriangleIds = shape.triangles;
-                          const baseCell = board.find(c => c.id === `cell-${shapeTriangleIds[0]}`);
-                          if (!baseCell) return null;
-
-                          return board
-                            .filter(cell => shapeTriangleIds.includes(parseInt(cell.id.replace('cell-', ''))))
-                            .map(cell => {
-                              const color = SHAPE_COLORS[idx];
-                              return (
-                                <polygon
-                                  key={cell.id}
-                                  points={getPreviewTriangleCoords(
-                                    cell,
-                                    baseCell,
-                                    panelPreviewTriangleSize,
-                                    panelPreviewCenterX,
-                                    panelPreviewCenterY
-                                  )}
-                                  fill={color}
-                                  stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
-                                  strokeWidth={isSelected ? '2' : '1'}
-                                  opacity="0.95"
-                                />
-                              );
-                            });
-                        })()}
+                        {getFittedPreviewPolygons(shape.triangles, panelPreviewTriangleSize, panelPreviewCanvasSize, 10).map(
+                          (points, polygonIndex) => {
+                            const color = SHAPE_COLORS[idx];
+                            return (
+                              <polygon
+                                key={`${shape.id}-${polygonIndex}`}
+                                points={points}
+                                fill={color}
+                                stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
+                                strokeWidth={isSelected ? '2' : '1'}
+                                opacity="0.95"
+                              />
+                            );
+                          }
+                        )}
                       </>
                     ) : null}
                   </svg>
