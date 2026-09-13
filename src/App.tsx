@@ -150,6 +150,8 @@ function hasLayoutContent(layout: LayoutDetails | null): boolean {
 function App() {
   const [started, setStarted] = useState(false)
   const [showFirstPlayGuide, setShowFirstPlayGuide] = useState(false)
+  const [showClearSolutionGuide, setShowClearSolutionGuide] = useState(false)
+  const [pendingSolvedHash, setPendingSolvedHash] = useState<string | null>(null)
   const [stats, setStats] = useState<ClearStats>({ totalSolutions: 0 })
   const [solutions, setSolutions] = useState<SolutionSummary[]>([])
   const [currentPage, setCurrentPage] = useState(1)
@@ -234,6 +236,18 @@ function App() {
     return null
   }, [pageSize])
 
+  const goToSolutionDetail = useCallback(async (hash: string) => {
+    const targetPage = await findSolutionPageByHash(hash)
+
+    setPage('solutions')
+    if (window.location.pathname !== '/solutions') {
+      window.history.pushState({}, '', '/solutions')
+    }
+
+    await loadSolutions(targetPage ?? 1)
+    await loadSolutionDetail(hash)
+  }, [findSolutionPageByHash, loadSolutions, loadSolutionDetail])
+
   useEffect(() => {
     void loadStats()
     void loadSolutions(1)
@@ -270,25 +284,12 @@ function App() {
       }
 
       const solvedHash = data.solution?.hash ?? record.hash
-      const targetPage = await findSolutionPageByHash(solvedHash)
-
-      setPage('solutions')
-      if (window.location.pathname !== '/solutions') {
-        window.history.pushState({}, '', '/solutions')
-      }
-
-      await loadSolutions(targetPage ?? 1)
-      await loadSolutionDetail(solvedHash)
+      setPendingSolvedHash(solvedHash)
+      setShowClearSolutionGuide(true)
     } catch {
       await loadStats()
-      setPage('solutions')
-      if (window.location.pathname !== '/solutions') {
-        window.history.pushState({}, '', '/solutions')
-      }
-      await loadSolutions(1)
-      await loadSolutionDetail(record.hash)
     }
-  }, [loadStats, loadSolutions, loadSolutionDetail, findSolutionPageByHash])
+  }, [loadStats])
 
   const formatTime = (iso: string) => {
     const d = new Date(iso)
@@ -331,6 +332,19 @@ function App() {
     } catch {
       // Ignore storage failures in restricted environments.
     }
+  }
+
+  const closeClearSolutionGuide = () => {
+    setShowClearSolutionGuide(false)
+  }
+
+  const handleViewSolvedDetail = async () => {
+    if (!pendingSolvedHash) return
+
+    const hash = pendingSolvedHash
+    setShowClearSolutionGuide(false)
+    setPendingSolvedHash(null)
+    await goToSolutionDetail(hash)
   }
 
   const renderLayoutBoard = (layout: LayoutDetails | null) => {
@@ -573,6 +587,29 @@ function App() {
             <button type="button" className="first-play-guide-btn" onClick={closeFirstPlayGuide}>
               我知道了，开始挑战
             </button>
+          </section>
+        </div>
+      )}
+
+      {page === 'home' && started && showClearSolutionGuide && (
+        <div className="clear-solution-guide-backdrop" role="presentation" onClick={closeClearSolutionGuide}>
+          <section
+            className="clear-solution-guide"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="clear-solution-guide-title"
+            onClick={event => event.stopPropagation()}
+          >
+            <h2 id="clear-solution-guide-title">通关成功</h2>
+            <p>你的这套摆法已经生成解法详情，可查看首次时间、总人数和布局图。</p>
+            <div className="clear-solution-guide-actions">
+              <button type="button" className="clear-solution-guide-ghost" onClick={closeClearSolutionGuide}>
+                继续游戏
+              </button>
+              <button type="button" className="clear-solution-guide-btn" onClick={() => void handleViewSolvedDetail()}>
+                查看详情
+              </button>
+            </div>
           </section>
         </div>
       )}
