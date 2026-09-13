@@ -22,6 +22,7 @@
 
 .app-header-card {
   width: var(--stage-width);
+  box-sizing: border-box;
   border-radius: 22px;
   padding: 18px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.94), rgba(243, 249, 255, 0.88));
@@ -150,8 +151,13 @@
 
 .game-stage {
   width: var(--stage-width);
+  box-sizing: border-box;
   display: flex;
   justify-content: center;
+}
+
+.game-stage > .triangle-game-container {
+  width: 100%;
 }
 
 .solutions-card {
@@ -165,6 +171,7 @@
 
 .solutions-page {
   width: var(--stage-width);
+  box-sizing: border-box;
   border-radius: 20px;
   padding: 18px;
   background: linear-gradient(150deg, rgba(252, 255, 255, 0.95), rgba(239, 248, 255, 0.92));
