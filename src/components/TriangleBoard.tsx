@@ -180,11 +180,6 @@ const TriangleBoard: React.FC = () => {
     setSelectedShape(null);
   };
 
-  const handleCellMouseEnter = (cellId: string) => {
-    if (!selectedShape && !movingShapeId) return;
-    setHoveredTriangleId(parseInt(cellId.replace('cell-', '')));
-  };
-
   const handleCellMouseUp = (cellId: string) => {
     if (!movingShapeId || DISABLED_CELLS.has(cellId)) return;
 
@@ -240,6 +235,17 @@ const TriangleBoard: React.FC = () => {
     }
   };
 
+  const getTriangleCenter = (cell: TriangleCell, size: number = 35): { x: number; y: number } => {
+    const points = getTriangleCoords(cell, size)
+      .split(' ')
+      .map(c => c.split(',').map(Number));
+
+    return {
+      x: (points[0][0] + points[1][0] + points[2][0]) / 3,
+      y: (points[0][1] + points[1][1] + points[2][1]) / 3,
+    };
+  };
+
   // 为预览计算三角形坐标的函数 - 基于相对位置
   const getPreviewTriangleCoords = (cell: TriangleCell, baseCell: TriangleCell, size: number = 50, centerX: number = 100, centerY: number = 125): string => {
     const h = (size * Math.sqrt(3)) / 2;
@@ -269,6 +275,47 @@ const TriangleBoard: React.FC = () => {
   const svgWidth = 18 * triangleSize / 2 + 40;
   const activePreviewShapeId = movingShapeId ?? selectedShape;
 
+  const cellCenters = useMemo(() => {
+    return board
+      .filter(cell => !DISABLED_CELLS.has(cell.id))
+      .map(cell => {
+        const center = getTriangleCenter(cell, triangleSize);
+        return {
+          id: parseInt(cell.id.replace('cell-', '')),
+          x: center.x,
+          y: center.y,
+        };
+      });
+  }, [board]);
+
+  const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement>) => {
+    if (!activePreviewShapeId || cellCenters.length === 0) return;
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const mouseX = ((event.clientX - rect.left) / rect.width) * svgWidth;
+    const mouseY = ((event.clientY - rect.top) / rect.height) * svgHeight;
+
+    let nearestId = cellCenters[0].id;
+    let minDist = Number.POSITIVE_INFINITY;
+
+    for (const cell of cellCenters) {
+      const dx = cell.x - mouseX;
+      const dy = cell.y - mouseY;
+      const dist = dx * dx + dy * dy;
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearestId = cell.id;
+      }
+    }
+
+    setHoveredTriangleId(nearestId);
+  };
+
+  const handleBoardMouseLeave = () => {
+    setHoveredTriangleId(null);
+  };
+
   // 限制最大尺寸，占用左侧2/3空间
   const displayWidth = Math.min(svgWidth, 800);
   const displayHeight = Math.min(svgHeight, 900);
@@ -287,7 +334,14 @@ const TriangleBoard: React.FC = () => {
         {/* 左侧：游戏棋盘 */}
         <div className="board-section">
           <div className="board-wrapper">
-            <svg width={displayWidth} height={displayHeight} className="triangle-board" viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
+            <svg
+              width={displayWidth}
+              height={displayHeight}
+              className="triangle-board"
+              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
+              onMouseMove={handleBoardMouseMove}
+              onMouseLeave={handleBoardMouseLeave}
+            >
               {board.map(cell => {
                 const isDisabled = DISABLED_CELLS.has(cell.id);
                 let fill: string;
@@ -313,11 +367,7 @@ const TriangleBoard: React.FC = () => {
                 const cellNum = parseInt(cell.id.replace('cell-', ''));
 
                 return (
-                  <g 
-                    key={cell.id}
-                    onMouseEnter={() => handleCellMouseEnter(cell.id)}
-                    onMouseLeave={() => setHoveredTriangleId(null)}
-                  >
+                  <g key={cell.id}>
                     <polygon
                       points={getTriangleCoords(cell, triangleSize)}
                       fill={fill}
