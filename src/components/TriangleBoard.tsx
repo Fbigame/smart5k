@@ -41,6 +41,22 @@ function createTriangleBoard(rows: number = 9): TriangleCell[] {
   return cells;
 }
 
+// 定义禁用的三角形位置
+const DISABLED_CELLS = new Set<string>();
+
+// 顶部第 0 行的 1 个三角形（第一行就是1个，所以全部禁用）
+DISABLED_CELLS.add('cell-0');
+
+// 左下角第 8 行的前 4 个三角形（第8行是17个三角形，索引从前面的 1+3+5+7+9+11+13+15=64 开始）
+for (let i = 64; i < 64 + 4; i++) {
+  DISABLED_CELLS.add(`cell-${i}`);
+}
+
+// 右下角第 8 行的后 4 个三角形
+for (let i = 80; i < 84; i++) {
+  DISABLED_CELLS.add(`cell-${i}`);
+}
+
 const TriangleBoard: React.FC = () => {
   const [board, setBoard] = useState<TriangleCell[]>([]);
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
@@ -53,10 +69,12 @@ const TriangleBoard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const filled = board.filter(cell => cell.filled).length;
+    const filled = board.filter(cell => !DISABLED_CELLS.has(cell.id) && cell.filled).length;
     setFilledCount(filled);
 
-    if (filled > 0 && filled === board.length) {
+    // 检查所有允许的三角形是否都被填充（81 - 9 禁用 = 72 个允许）
+    const allowed = board.filter(cell => !DISABLED_CELLS.has(cell.id));
+    if (allowed.length > 0 && allowed.every(cell => cell.filled)) {
       alert(`🎉 Level ${level} Complete!`);
       setLevel(level + 1);
       setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
@@ -65,7 +83,7 @@ const TriangleBoard: React.FC = () => {
   }, [board, level]);
 
   const handleCellClick = (cellId: string) => {
-    if (!selectedShape) return;
+    if (!selectedShape || DISABLED_CELLS.has(cellId)) return;
     setBoard(prevBoard =>
       prevBoard.map(cell =>
         cell.id === cellId && !cell.filled
@@ -102,7 +120,7 @@ const TriangleBoard: React.FC = () => {
         <h1>Triangle Fill Game</h1>
         <div className="stats">
           <span>Level: {level}</span>
-          <span>Filled: {filledCount}/{board.length}</span>
+          <span>Filled: {filledCount}/72</span>
         </div>
       </div>
 
@@ -110,17 +128,32 @@ const TriangleBoard: React.FC = () => {
         <div className="board-wrapper">
           <svg width={svgWidth} height={svgHeight} className="triangle-board" viewBox={`0 0 ${svgWidth} ${svgHeight}`}>
             {board.map(cell => {
-              const color = cell.filled && cell.shapeId ? SHAPE_COLORS[cell.shapeId - 1] : '#fff';
+              const isDisabled = DISABLED_CELLS.has(cell.id);
+              let fill: string;
+              let stroke: string;
+
+              if (isDisabled) {
+                // 禁用的三角形显示为浅灰色
+                fill = '#d3d3d3';
+                stroke = '#aaa';
+              } else if (cell.filled) {
+                fill = SHAPE_COLORS[cell.shapeId ? cell.shapeId - 1 : 0];
+                stroke = '#ddd';
+              } else {
+                fill = '#fff';
+                stroke = '#999';
+              }
+
               return (
                 <polygon
                   key={cell.id}
                   points={getTriangleCoords(cell)}
-                  fill={color}
-                  stroke={cell.filled ? '#ddd' : '#999'}
-                  strokeWidth={cell.filled ? '0.5' : '1'}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
                   className="triangle-cell"
                   onClick={() => handleCellClick(cell.id)}
-                  style={{ cursor: selectedShape && !cell.filled ? 'pointer' : 'default' }}
+                  style={{ cursor: !isDisabled && selectedShape && !cell.filled ? 'pointer' : 'default', pointerEvents: isDisabled ? 'none' : 'auto' }}
                 />
               );
             })}
