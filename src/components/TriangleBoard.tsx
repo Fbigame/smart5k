@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SHAPES } from '../utils/shapeDefinitions';
 import './GameBoard.css';
 import './TriangleBoard.css';
@@ -53,10 +53,18 @@ const TriangleBoard: React.FC = () => {
   const [board, setBoard] = useState<TriangleCell[]>([]);
   const [selectedShape, setSelectedShape] = useState<number | null>(null);
   const [hoveredTriangleId, setHoveredTriangleId] = useState<number | null>(null);
-  const [placedShapes, setPlacedShapes] = useState<Set<number>>(new Set());
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
+
+  // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
+  const placedShapes = useMemo(() => {
+    return new Set(
+      board
+        .filter(cell => cell.filled && cell.shapeId !== undefined)
+        .map(cell => cell.shapeId as number)
+    );
+  }, [board]);
 
   useEffect(() => {
     const initialBoard = createTriangleBoard(9);
@@ -73,170 +81,80 @@ const TriangleBoard: React.FC = () => {
       alert(`🎉 Level ${level} Complete!`);
       setLevel(level + 1);
       setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
-      setPlacedShapes(new Set());
       setMovingShapeId(null);
       setSelectedShape(null);
     }
-
-    // 追踪已完整放置的形状
-    const newPlacedShapes = new Set<number>();
-    for (let shapeId = 1; shapeId <= 12; shapeId++) {
-      const shape = SHAPES.find(s => s.id === shapeId);
-      if (!shape) continue;
-      
-      // 检查该形状的所有三角形是否都被填充
-      const allTrianglesFilled = shape.triangles.every(triangleId => {
-        const cell = board.find(c => c.id === `cell-${triangleId}`);
-        return cell && cell.filled && cell.shapeId === shapeId;
-      });
-      
-      if (allTrianglesFilled) {
-        newPlacedShapes.add(shapeId);
-      }
-    }
-    setPlacedShapes(newPlacedShapes);
   }, [board, level]);
 
-  const handleCellClick = (cellId: string) => {
-    if (DISABLED_CELLS.has(cellId)) return;
-    
-    const clickedCell = board.find(c => c.id === cellId);
-    if (!clickedCell) return;
-    
-    const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
-    
-    // 如果点击的是已放置的形状，进入移动模式
-    if (clickedCell.filled && clickedCell.shapeId) {
-      setMovingShapeId(clickedCell.shapeId);
-      setSelectedShape(clickedCell.shapeId);
-      setHoveredTriangleId(clickedTriangleId);
-      return;
+  const getMappedTriangles = (
+    shapeId: number,
+    anchorTriangleId: number,
+    allowOverlapShapeId?: number
+  ): number[] | null => {
+    const shape = SHAPES.find(s => s.id === shapeId);
+    if (!shape || shape.triangles.length === 0) return null;
+
+    const baseCellRef = board.find(c => c.id === `cell-${shape.triangles[0]}`);
+    const anchorCell = board.find(c => c.id === `cell-${anchorTriangleId}`);
+    if (!baseCellRef || !anchorCell) return null;
+
+    const relativePositions = shape.triangles
+      .map(triangleId => board.find(c => c.id === `cell-${triangleId}`))
+      .filter((cell): cell is TriangleCell => Boolean(cell))
+      .map(cell => ({
+        row: cell.row - baseCellRef.row,
+        col: cell.col - baseCellRef.col,
+        direction: cell.direction,
+      }));
+
+    if (relativePositions.length !== shape.triangles.length) {
+      return null;
     }
-    
-    // 如果正在移动一个形状，处理移动
-    if (movingShapeId && hoveredTriangleId !== null) {
-      const shapeTriangles = SHAPES[movingShapeId - 1]?.triangles || [];
-      const baseCellRef = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
-      const hoveredCell = board.find(c => c.id === `cell-${hoveredTriangleId}`);
-      
-      if (!baseCellRef || !hoveredCell) return;
-      
-      // 计算相对位置
-      const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
-      for (const triangleId of shapeTriangles) {
-        const cell = board.find(c => c.id === `cell-${triangleId}`);
-        if (cell) {
-          relativePositions.push({
-            row: cell.row - baseCellRef.row,
-            col: cell.col - baseCellRef.col,
-            direction: cell.direction
-          });
-        }
-      }
-      
-      // 应用相对位置到鼠标悬停位置
-      const mappedTriangles: number[] = [];
-      let allValid = true;
-      
-      for (const relPos of relativePositions) {
-        const targetRow = hoveredCell.row + relPos.row;
-        const targetCol = hoveredCell.col + relPos.col;
-        
-        const targetCell = board.find(c => 
-          c.row === targetRow && 
-          c.col === targetCol && 
-          c.direction === relPos.direction
-        );
-        
-        if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
-          allValid = false;
-          break;
-        }
-        
-        // 允许覆盖同一个形状的旧位置，但不允许覆盖其他形状
-        if (targetCell.filled && targetCell.shapeId !== movingShapeId) {
-          allValid = false;
-          break;
-        }
-        
-        mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
-      }
-      
-      if (allValid) {
-        setBoard(prevBoard =>
-          prevBoard.map(cell => {
-            const id = parseInt(cell.id.replace('cell-', ''));
-            // 清除该形状的旧位置
-            if (cell.shapeId === movingShapeId && !mappedTriangles.includes(id)) {
-              return { ...cell, filled: false, shapeId: undefined };
-            }
-            // 填充新位置
-            if (mappedTriangles.includes(id)) {
-              return { ...cell, filled: true, shapeId: movingShapeId };
-            }
-            return cell;
-          })
-        );
-        setMovingShapeId(null);
-        setSelectedShape(null);
-        setHoveredTriangleId(null);
-      }
-      return;
-    }
-    
-    // 只有当从右侧选中了一个已定义的形状时，才能放置
-    if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
-    
-    // 放置选中的形状
-    setHoveredTriangleId(clickedTriangleId);
-    
-    const shapeTriangles = SHAPES[selectedShape - 1]?.triangles || [];
-    const baseCellRef = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
-    
-    if (!baseCellRef || !clickedCell) return;
-    
-    // 计算相对位置
-    const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
-    for (const triangleId of shapeTriangles) {
-      const cell = board.find(c => c.id === `cell-${triangleId}`);
-      if (cell) {
-        relativePositions.push({
-          row: cell.row - baseCellRef.row,
-          col: cell.col - baseCellRef.col,
-          direction: cell.direction
-        });
-      }
-    }
-    
-    // 应用相对位置到点击位置
+
     const mappedTriangles: number[] = [];
-    let allValid = true;
-    
     for (const relPos of relativePositions) {
-      const targetRow = clickedCell.row + relPos.row;
-      const targetCol = clickedCell.col + relPos.col;
-      
-      const targetCell = board.find(c => 
-        c.row === targetRow && 
-        c.col === targetCol && 
-        c.direction === relPos.direction
+      const targetRow = anchorCell.row + relPos.row;
+      const targetCol = anchorCell.col + relPos.col;
+
+      const targetCell = board.find(
+        c => c.row === targetRow && c.col === targetCol && c.direction === relPos.direction
       );
-      
+
       if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
-        allValid = false;
-        break;
+        return null;
       }
-      
-      // 不允许覆盖任何已填充的位置
-      if (targetCell.filled) {
-        allValid = false;
-        break;
+
+      if (
+        targetCell.filled &&
+        (!allowOverlapShapeId || targetCell.shapeId !== allowOverlapShapeId)
+      ) {
+        return null;
       }
-      
+
       mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
     }
-    
-    if (allValid) {
+
+    return mappedTriangles;
+  };
+
+  const handleCellClick = (cellId: string) => {
+    if (movingShapeId) return;
+    if (DISABLED_CELLS.has(cellId)) return;
+
+    const clickedCell = board.find(c => c.id === cellId);
+    if (!clickedCell) return;
+
+    const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
+
+    if (clickedCell.filled) {
+      return;
+    }
+
+    // 只有当从右侧选中了一个已定义的形状时，才能放置
+    if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
+
+    const mappedTriangles = getMappedTriangles(selectedShape, clickedTriangleId);
+    if (mappedTriangles) {
       setBoard(prevBoard =>
         prevBoard.map(cell => {
           const id = parseInt(cell.id.replace('cell-', ''));
@@ -245,13 +163,65 @@ const TriangleBoard: React.FC = () => {
             : cell;
         })
       );
-      // 将此形状添加到已放置集合
-      setPlacedShapes(prev => new Set([...prev, selectedShape]));
       // 放置成功后，清除选择
       setSelectedShape(null);
       setHoveredTriangleId(null);
     }
   };
+
+  const handleCellMouseDown = (cellId: string) => {
+    if (DISABLED_CELLS.has(cellId)) return;
+
+    const cell = board.find(c => c.id === cellId);
+    if (!cell || !cell.filled || !cell.shapeId) return;
+
+    setMovingShapeId(cell.shapeId);
+    setHoveredTriangleId(parseInt(cellId.replace('cell-', '')));
+    setSelectedShape(null);
+  };
+
+  const handleCellMouseEnter = (cellId: string) => {
+    if (!selectedShape && !movingShapeId) return;
+    setHoveredTriangleId(parseInt(cellId.replace('cell-', '')));
+  };
+
+  const handleCellMouseUp = (cellId: string) => {
+    if (!movingShapeId || DISABLED_CELLS.has(cellId)) return;
+
+    const targetTriangleId = parseInt(cellId.replace('cell-', ''));
+    const mappedTriangles = getMappedTriangles(movingShapeId, targetTriangleId, movingShapeId);
+
+    if (mappedTriangles) {
+      const movingId = movingShapeId;
+      setBoard(prevBoard =>
+        prevBoard.map(cell => {
+          const id = parseInt(cell.id.replace('cell-', ''));
+          if (cell.shapeId === movingId && !mappedTriangles.includes(id)) {
+            return { ...cell, filled: false, shapeId: undefined };
+          }
+
+          if (mappedTriangles.includes(id)) {
+            return { ...cell, filled: true, shapeId: movingId };
+          }
+
+          return cell;
+        })
+      );
+    }
+
+    setMovingShapeId(null);
+    setHoveredTriangleId(null);
+  };
+
+  useEffect(() => {
+    const cancelMove = () => {
+      setMovingShapeId(null);
+      setHoveredTriangleId(null);
+    };
+
+    window.addEventListener('mouseup', cancelMove);
+    return () => window.removeEventListener('mouseup', cancelMove);
+  }, []);
 
   const handleShapeSelect = (shapeId: number) => {
     setSelectedShape(selectedShape === shapeId ? null : shapeId);
@@ -297,6 +267,7 @@ const TriangleBoard: React.FC = () => {
   const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
+  const activePreviewShapeId = movingShapeId ?? selectedShape;
 
   // 限制最大尺寸，占用左侧2/3空间
   const displayWidth = Math.min(svgWidth, 800);
@@ -344,11 +315,7 @@ const TriangleBoard: React.FC = () => {
                 return (
                   <g 
                     key={cell.id}
-                    onMouseEnter={() => {
-                      if (selectedShape) {
-                        setHoveredTriangleId(parseInt(cell.id.replace('cell-', '')));
-                      }
-                    }}
+                    onMouseEnter={() => handleCellMouseEnter(cell.id)}
                     onMouseLeave={() => setHoveredTriangleId(null)}
                   >
                     <polygon
@@ -357,8 +324,21 @@ const TriangleBoard: React.FC = () => {
                       stroke={stroke}
                       strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
                       className="triangle-cell"
+                      onMouseDown={() => handleCellMouseDown(cell.id)}
+                      onMouseUp={() => handleCellMouseUp(cell.id)}
                       onClick={() => handleCellClick(cell.id)}
-                      style={{ cursor: !isDisabled && selectedShape && !cell.filled ? 'pointer' : 'default', pointerEvents: isDisabled ? 'none' : 'auto' }}
+                      style={{
+                        cursor: isDisabled
+                          ? 'default'
+                          : movingShapeId
+                          ? 'grabbing'
+                          : cell.filled
+                          ? 'grab'
+                          : selectedShape
+                          ? 'pointer'
+                          : 'default',
+                        pointerEvents: isDisabled ? 'none' : 'auto',
+                      }}
                     />
                     <text
                       x={centerX}
@@ -378,60 +358,12 @@ const TriangleBoard: React.FC = () => {
               })}
 
               {/* 虚拟形状显示 - 跟随鼠标 */}
-              {(selectedShape || movingShapeId) && hoveredTriangleId !== null && (SHAPES[selectedShape - 1] || SHAPES[movingShapeId - 1]) && (
+              {activePreviewShapeId && hoveredTriangleId !== null && SHAPES.find(s => s.id === activePreviewShapeId) && (
                 (() => {
-                  const shapeId = selectedShape || movingShapeId;
-                  const shapeTriangles = SHAPES[shapeId - 1]?.triangles;
-                  if (!shapeTriangles) return null;
-                  
-                  const baseCellRef = board.find(c => c.id === `cell-${shapeTriangles[0]}`);
-                  const baseCell = board.find(c => c.id === `cell-${hoveredTriangleId}`);
-                  if (!baseCellRef || !baseCell) return null;
-                  
-                  // 计算相对位置
-                  const relativePositions: Array<{row: number; col: number; direction: 'UP' | 'DOWN'}> = [];
-                  for (const triangleId of shapeTriangles) {
-                    const cell = board.find(c => c.id === `cell-${triangleId}`);
-                    if (cell) {
-                      relativePositions.push({
-                        row: cell.row - baseCellRef.row,
-                        col: cell.col - baseCellRef.col,
-                        direction: cell.direction
-                      });
-                    }
-                  }
-                  
-                  // 应用相对位置到当前鼠标悬停位置
-                  const mappedTriangles: number[] = [];
-                  let allValid = true;
-                  
-                  for (const relPos of relativePositions) {
-                    const targetRow = baseCell.row + relPos.row;
-                    const targetCol = baseCell.col + relPos.col;
-                    
-                    const targetCell = board.find(c => 
-                      c.row === targetRow && 
-                      c.col === targetCol && 
-                      c.direction === relPos.direction
-                    );
-                    
-                    if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
-                      allValid = false;
-                      break;
-                    }
-                    
-                    // 允许覆盖同一个形状的旧位置，但不允许覆盖其他形状
-                    const shapeIdToCheck = selectedShape || movingShapeId;
-                    if (targetCell.filled && targetCell.shapeId !== shapeIdToCheck) {
-                      allValid = false;
-                      break;
-                    }
-                    
-                    mappedTriangles.push(parseInt(targetCell.id.replace('cell-', '')));
-                  }
-                  
-                  if (!allValid) return null;
-                  
+                  const shapeId = activePreviewShapeId;
+                  const mappedTriangles = getMappedTriangles(shapeId, hoveredTriangleId, movingShapeId ?? undefined);
+                  if (!mappedTriangles) return null;
+
                   return mappedTriangles.map(triangleId => {
                     const cell = board.find(c => c.id === `cell-${triangleId}`);
                     if (!cell) return null;
@@ -519,8 +451,9 @@ const TriangleBoard: React.FC = () => {
           </div>
           <button className="btn btn-primary shape-clear-btn" onClick={() => {
             setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
-            setPlacedShapes(new Set());
             setSelectedShape(null);
+            setMovingShapeId(null);
+            setHoveredTriangleId(null);
           }}>
             Clear Board
           </button>

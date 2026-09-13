@@ -1,15 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import ShapeRenderer from './ShapeRenderer';
 import { SHAPES } from '../utils/shapeDefinitions';
 import './GameBoard.css';
-
-interface ShapeDefinition {
-  id: number;
-  name: string;
-  description: string;
-  triangles: number[];
-  rotations?: number;
-}
 
 // 每个形状对应的颜色
 const SHAPE_COLORS = [
