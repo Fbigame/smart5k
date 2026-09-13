@@ -1,32 +1,29 @@
 import React, { useState, useEffect } from 'react';
+import ShapeRenderer from './ShapeRenderer';
+import { SHAPES, ShapeDefinition } from '../utils/shapeDefinitions';
 import './GameBoard.css';
 
-interface Shape {
-  id: number;
-  type: string;
-  color: string;
-}
+// 每个形状对应的颜色
+const SHAPE_COLORS = [
+  '#FF6B6B', // Hexagon - Red
+  '#4ECDC4', // Vertical Strip - Teal
+  '#45B7D1', // Horizontal Strip - Blue
+  '#FFA07A', // L Shape - Light Salmon
+  '#98D8C8', // Z Shape - Mint
+  '#F7DC6F', // T Shape - Yellow
+  '#BB8FCE', // S Shape - Purple
+  '#85C1E2', // Trapezoid - Light Blue
+  '#F8B88B', // Windmill - Peach
+  '#52C0A1', // Petal - Teal Green
+  '#E59866', // Arc - Orange
+  '#AED6F1', // Leaf - Sky Blue
+];
 
 interface Cell {
   id: string;
   filled: boolean;
   shapeId?: number;
 }
-
-const SHAPES = [
-  { id: 1, type: 'square', color: '#FF6B6B' },
-  { id: 2, type: 'circle', color: '#4ECDC4' },
-  { id: 3, type: 'triangle', color: '#45B7D1' },
-  { id: 4, type: 'rect', color: '#FFA07A' },
-  { id: 5, type: 'pentagon', color: '#98D8C8' },
-  { id: 6, type: 'hexagon', color: '#F7DC6F' },
-  { id: 7, type: 'star', color: '#BB8FCE' },
-  { id: 8, type: 'diamond', color: '#85C1E2' },
-  { id: 9, type: 'heart', color: '#F8B88B' },
-  { id: 10, type: 'cross', color: '#52C0A1' },
-  { id: 11, type: 'crescent', color: '#E59866' },
-  { id: 12, type: 'spiral', color: '#AED6F1' },
-];
 
 const GRID_SIZE = 6; // 6x6 grid = 36 cells
 
@@ -105,12 +102,12 @@ const GameBoard: React.FC = () => {
                 onClick={() => handleCellClick(cell.id)}
                 style={
                   cell.filled && cell.shapeId
-                    ? { backgroundColor: SHAPES[cell.shapeId - 1]?.color }
+                    ? { backgroundColor: SHAPE_COLORS[cell.shapeId - 1] }
                     : {}
                 }
               >
                 {cell.filled && cell.shapeId && (
-                  <span className="shape-label">{SHAPES[cell.shapeId - 1]?.type[0].toUpperCase()}</span>
+                  <span className="shape-label">{SHAPES[cell.shapeId - 1]?.name[0].toUpperCase()}</span>
                 )}
               </div>
             ))}
@@ -121,16 +118,19 @@ const GameBoard: React.FC = () => {
         <div className="shape-selector">
           <h2>Select Shape</h2>
           <div className="shapes-grid">
-            {SHAPES.map(shape => (
+            {SHAPES.map((shape, index) => (
               <div
                 key={shape.id}
                 className={`shape-button ${selectedShape === shape.id ? 'selected' : ''}`}
                 onClick={() => handleShapeSelect(shape.id)}
-                style={{ backgroundColor: shape.color }}
-                title={shape.type}
+                title={shape.description}
               >
-                <span className="shape-name">{shape.type}</span>
-                <span className="shape-count">{SHAPES.length - shape.id + 1}</span>
+                <ShapeRenderer
+                  shape={shape}
+                  color={SHAPE_COLORS[index]}
+                  size={60}
+                />
+                <span className="shape-name">{shape.name}</span>
               </div>
             ))}
           </div>

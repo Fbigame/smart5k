@@ -1,0 +1,14 @@
+.shape-renderer {
+  display: block;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+  transition: all 0.2s ease;
+}
+
+.shape-renderer:hover {
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
+  transform: scale(1.05);
+}
+
+.shape-renderer:active {
+  transform: scale(0.98);
+}
