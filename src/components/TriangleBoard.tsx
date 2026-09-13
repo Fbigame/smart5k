@@ -797,6 +797,27 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
       .join(' ');
   };
 
+  const insetTrianglePoints = (points: string, insetBy: number = 1.1): string => {
+    const vertices = points.split(' ').map(point => {
+      const [x, y] = point.split(',').map(Number);
+      return { x, y };
+    });
+
+    const centerX = (vertices[0].x + vertices[1].x + vertices[2].x) / 3;
+    const centerY = (vertices[0].y + vertices[1].y + vertices[2].y) / 3;
+
+    return vertices
+      .map(vertex => {
+        const dx = centerX - vertex.x;
+        const dy = centerY - vertex.y;
+        const length = Math.hypot(dx, dy) || 1;
+        const nx = dx / length;
+        const ny = dy / length;
+        return `${vertex.x + nx * insetBy},${vertex.y + ny * insetBy}`;
+      })
+      .join(' ');
+  };
+
   // 为预览计算三角形坐标的函数 - 基于相对位置
   const getPreviewTriangleCoords = (cell: TriangleCell, baseCell: TriangleCell, size: number = 50, centerX: number = 100, centerY: number = 125): string => {
     const h = (size * Math.sqrt(3)) / 2;
@@ -1286,15 +1307,25 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                         ).map(
                           (points, polygonIndex) => {
                             const color = SHAPE_COLORS[idx];
+                            const borderPoints = expandTrianglePoints(points, 0.45);
+                            const innerPoints = insetTrianglePoints(points, 1.2);
                             return (
-                              <polygon
-                                key={`${shape.id}-${polygonIndex}`}
-                                points={expandTrianglePoints(points, 0.45)}
-                                fill={color}
-                                stroke="none"
-                                strokeWidth="0"
-                                opacity="0.95"
-                              />
+                              <g key={`${shape.id}-${polygonIndex}`}>
+                                <polygon
+                                  points={borderPoints}
+                                  fill="rgba(19, 69, 116, 0.38)"
+                                  stroke="none"
+                                  strokeWidth="0"
+                                  opacity="0.95"
+                                />
+                                <polygon
+                                  points={innerPoints}
+                                  fill={color}
+                                  stroke="none"
+                                  strokeWidth="0"
+                                  opacity="0.98"
+                                />
+                              </g>
                             );
                           }
                         )}
