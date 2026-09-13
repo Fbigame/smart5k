@@ -78,6 +78,15 @@
   flex: 1;
 }
 
+.shapes-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 8px;
+}
+
 .shape-item {
   display: flex;
   align-items: center;
@@ -166,6 +175,30 @@
 .back-btn:hover {
   background: #f0f0f0;
   border-color: #999;
+}
+
+.shape-preview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+  border: 2px solid #ddd;
+}
+
+.shape-preview-item:hover {
+  border-color: #999;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.shape-preview-item.active {
+  border: 3px solid #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  box-shadow: 0 2px 12px rgba(102, 126, 234, 0.3);
 }
 
 .shape-clear-btn {

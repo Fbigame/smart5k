@@ -363,55 +363,63 @@ const TriangleBoard: React.FC = () => {
 
         {/* 右侧：形状选择与预览 */}
         <div className="shape-section">
-          {!selectedShape ? (
-            <div className="shapes-list">
-              <h2>Shapes</h2>
-              {SHAPES.map((shape, index) => (
+          <div className="shapes-grid">
+            <h2 style={{ gridColumn: '1 / -1', marginBottom: '10px' }}>Shapes</h2>
+            {/* 显示12个形状的预览网格 */}
+            {Array.from({ length: 12 }).map((_, idx) => {
+              const shape = SHAPES.find(s => s.id === idx + 1);
+              const isSelected = selectedShape === idx + 1;
+              
+              return (
                 <div
-                  key={shape.id}
-                  className={`shape-item`}
-                  onClick={() => handleShapeSelect(shape.id)}
-                  style={{ borderLeftColor: SHAPE_COLORS[index] }}
-                  title={shape.description}
+                  key={idx + 1}
+                  className={`shape-preview-item ${isSelected ? 'active' : ''}`}
+                  onClick={() => handleShapeSelect(idx + 1)}
+                  style={{
+                    border: isSelected ? `3px solid ${SHAPE_COLORS[idx]}` : `2px solid #ddd`,
+                    background: isSelected ? `${SHAPE_COLORS[idx]}22` : '#fff',
+                    cursor: 'pointer',
+                    borderRadius: '8px',
+                    padding: '8px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minHeight: '100px',
+                    transition: 'all 0.2s ease'
+                  }}
                 >
-                  <span className="shape-id">{shape.id}</span>
-                  <span className="shape-label">{shape.name}</span>
+                  <div style={{ fontSize: '12px', fontWeight: 'bold', color: '#666', marginBottom: '4px' }}>
+                    {idx + 1}
+                  </div>
+                  {shape ? (
+                    <svg width="60" height="70" viewBox="0 0 160 180" preserveAspectRatio="xMidYMid meet">
+                      {board
+                        .filter(cell => shape.triangles.includes(parseInt(cell.id.replace('cell-', ''))))
+                        .map(cell => {
+                          const color = SHAPE_COLORS[idx];
+                          return (
+                            <polygon
+                              key={cell.id}
+                              points={getTriangleCoords(cell, 20)}
+                              fill={color}
+                              stroke="#333"
+                              strokeWidth="0.5"
+                              opacity="0.9"
+                            />
+                          );
+                        })}
+                    </svg>
+                  ) : (
+                    <div style={{ fontSize: '32px', color: '#ccc' }}>?</div>
+                  )}
+                  <div style={{ fontSize: '11px', color: '#999', marginTop: '4px', textAlign: 'center' }}>
+                    {shape?.name || '待定'}
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <>
-              <button 
-                className="back-btn"
-                onClick={() => setSelectedShape(null)}
-                style={{ alignSelf: 'flex-start', marginBottom: '10px' }}
-              >
-                ← Back
-              </button>
-              <h2>{SHAPES[selectedShape - 1]?.description}</h2>
-              <svg width="160" height="180" className="preview-board-large" viewBox="0 0 160 180" preserveAspectRatio="xMidYMid meet">
-                {board
-                  .filter(cell => SHAPES[selectedShape - 1]?.triangles.includes(parseInt(cell.id.replace('cell-', ''))))
-                  .map(cell => {
-                    const color = SHAPE_COLORS[selectedShape - 1];
-                    return (
-                      <polygon
-                        key={cell.id}
-                        points={getTriangleCoords(cell, 20)}
-                        fill={color}
-                        stroke="#333"
-                        strokeWidth="0.5"
-                        opacity="0.9"
-                      />
-                    );
-                  })}
-              </svg>
-              <p style={{ fontSize: '12px', marginTop: '10px', textAlign: 'center', color: '#666' }}>
-                点击棋盘放置这个形状
-              </p>
-            </>
-          )}
-
+              );
+            })}
+          </div>
           <button className="btn btn-primary shape-clear-btn" onClick={() => {
             setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined })));
             setSelectedShape(null);
