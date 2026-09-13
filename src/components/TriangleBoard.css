@@ -110,22 +110,35 @@
   height: auto;
 }
 
-.triangle-game-container .shape-flip-btn {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
+.triangle-game-container .shape-action-menu {
+  position: fixed;
+  z-index: 1200;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(20, 20, 20, 0.92);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.35);
+  transform: translate(-50%, -120%);
+}
+
+.triangle-game-container .shape-action-menu-btn {
   border: 0;
-  border-radius: 10px;
-  padding: 2px 8px;
-  font-size: 11px;
-  line-height: 1.4;
-  background: rgba(0, 0, 0, 0.45);
-  color: #fff;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  line-height: 1;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
   cursor: pointer;
 }
 
-.triangle-game-container .shape-flip-btn:active {
-  transform: scale(0.96);
+.triangle-game-container .shape-action-menu-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.triangle-game-container .shape-action-menu-btn:active {
+  transform: translateY(1px);
 }
 
 .floating-shape-preview {

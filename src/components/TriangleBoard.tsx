@@ -14,6 +14,14 @@ interface TriangleCell {
   shapeIds: number[];
 }
 
+interface ShapeActionMenuState {
+  shapeId: number;
+  x: number;
+  y: number;
+  source: 'board' | 'panel';
+  anchorCellId?: string;
+}
+
 const SHAPE_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F',
   '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0A1', '#E59866', '#AED6F1',
@@ -63,13 +71,18 @@ const TriangleBoard: React.FC = () => {
   const [draggingFromPanel, setDraggingFromPanel] = useState(false);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
   const [shapeFlips, setShapeFlips] = useState<Record<number, boolean>>({
+    3: true,
     4: true,
     7: true,
+    8: true,
+    12: true,
   });
+  const [shapeActionMenu, setShapeActionMenu] = useState<ShapeActionMenuState | null>(null);
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
   const [filledCount, setFilledCount] = useState(0);
   const boardSvgRef = useRef<SVGSVGElement | null>(null);
+  const shapeActionMenuRef = useRef<HTMLDivElement | null>(null);
 
   // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
   const placedShapes = useMemo(() => {
@@ -80,6 +93,21 @@ const TriangleBoard: React.FC = () => {
     const initialBoard = createTriangleBoard(9);
     setBoard(initialBoard);
   }, []);
+
+  useEffect(() => {
+    if (!shapeActionMenu) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (target && shapeActionMenuRef.current?.contains(target)) {
+        return;
+      }
+      setShapeActionMenu(null);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [shapeActionMenu]);
 
   useEffect(() => {
     const filled = board.filter(cell => !DISABLED_CELLS.has(cell.id) && cell.filled).length;
@@ -211,11 +239,12 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleCellPointerDown = (event: React.PointerEvent<SVGPolygonElement>, cellId: string) => {
+    setShapeActionMenu(null);
     setDragStartPoint({ x: event.clientX, y: event.clientY });
     handleCellMouseDown(cellId);
   };
 
-  const handleCellPointerUp = (cellId: string) => {
+  const handleCellPointerUp = (event: React.PointerEvent<SVGPolygonElement>, cellId: string) => {
     if (selectedShape && draggingFromPanel) {
       const cell = board.find(c => c.id === cellId);
       if (!cell) return;
@@ -262,6 +291,7 @@ const TriangleBoard: React.FC = () => {
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
       setDragStartPoint(null);
+      setShapeActionMenu(null);
       return;
     }
 
@@ -271,7 +301,13 @@ const TriangleBoard: React.FC = () => {
     if (!cell) return;
 
     if (!draggingShape && cell.shapeIds.includes(movingShapeId)) {
-      rotatePlacedShapeAtCell(movingShapeId, cellId);
+      setShapeActionMenu({
+        shapeId: movingShapeId,
+        x: event.clientX,
+        y: event.clientY,
+        source: 'board',
+        anchorCellId: cellId,
+      });
       setMovingShapeId(null);
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
@@ -320,6 +356,7 @@ const TriangleBoard: React.FC = () => {
     setSnappedTriangles(null);
     setDraggingShape(false);
     setDragStartPoint(null);
+    setShapeActionMenu(null);
   };
 
   const removeShapeFromBoard = (shapeId: number) => {
@@ -342,12 +379,15 @@ const TriangleBoard: React.FC = () => {
     );
   };
 
-  const rotatePlacedShapeAtCell = (shapeId: number, anchorCellId: string) => {
+  const applyPlacedShapeTransformAtCell = (
+    shapeId: number,
+    anchorCellId: string,
+    nextRotation: number,
+    nextFlipped: boolean
+  ): boolean => {
     const anchorCell = board.find(c => c.id === anchorCellId);
-    if (!anchorCell) return;
+    if (!anchorCell) return false;
 
-    const nextRotation = ((shapeRotations[shapeId] ?? 0) + 1) % 6;
-    const flipped = shapeFlips[shapeId] ?? false;
     const anchorCenter = getTriangleCenter(anchorCell, triangleSize);
     const bestSnap = findBestSnapPlacement(
       shapeId,
@@ -355,14 +395,19 @@ const TriangleBoard: React.FC = () => {
       anchorCenter.y,
       nextRotation,
       shapeId,
-      flipped
+      nextFlipped
     );
 
-    if (!bestSnap?.mappedTriangles) return;
+    if (!bestSnap?.mappedTriangles) return false;
 
     setShapeRotations(prev => ({
       ...prev,
       [shapeId]: nextRotation,
+    }));
+
+    setShapeFlips(prev => ({
+      ...prev,
+      [shapeId]: nextFlipped,
     }));
 
     setBoard(prevBoard =>
@@ -386,11 +431,25 @@ const TriangleBoard: React.FC = () => {
 
     setSnappedTriangles(bestSnap.mappedTriangles);
     setMovingShapeId(shapeId);
+    return true;
+  };
+
+  const rotatePlacedShapeAtCell = (shapeId: number, anchorCellId: string) => {
+    const nextRotation = ((shapeRotations[shapeId] ?? 0) + 1) % 6;
+    const flipped = shapeFlips[shapeId] ?? false;
+    applyPlacedShapeTransformAtCell(shapeId, anchorCellId, nextRotation, flipped);
+  };
+
+  const flipPlacedShapeAtCell = (shapeId: number, anchorCellId: string) => {
+    const rotation = shapeRotations[shapeId] ?? 0;
+    const nextFlipped = !(shapeFlips[shapeId] ?? false);
+    applyPlacedShapeTransformAtCell(shapeId, anchorCellId, rotation, nextFlipped);
   };
 
   const handleShapeCardPointerDown = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
     if (movingShapeId) return;
 
+    setShapeActionMenu(null);
     setPanelPointerShapeId(shapeId);
     setSelectedShape(null);
     setDraggingFromPanel(false);
@@ -398,11 +457,16 @@ const TriangleBoard: React.FC = () => {
     setSnappedTriangles(null);
   };
 
-  const handleShapeCardPointerUp = (shapeId: number) => {
+  const handleShapeCardPointerUp = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
     if (panelPointerShapeId !== shapeId) return;
 
     if (!draggingFromPanel) {
-      rotateShape(shapeId);
+      setShapeActionMenu({
+        shapeId,
+        x: event.clientX,
+        y: event.clientY,
+        source: 'panel',
+      });
       setSelectedShape(null);
       setHoveredTriangleId(null);
       setSnappedTriangles(null);
@@ -415,6 +479,32 @@ const TriangleBoard: React.FC = () => {
     setPanelPointerShapeId(null);
     setDraggingFromPanel(false);
     setDragStartPoint(null);
+  };
+
+  const handleShapeMenuRotate = () => {
+    if (!shapeActionMenu) return;
+
+    const { shapeId, source, anchorCellId } = shapeActionMenu;
+    if (source === 'board' && anchorCellId) {
+      rotatePlacedShapeAtCell(shapeId, anchorCellId);
+    } else {
+      rotateShape(shapeId);
+    }
+
+    setShapeActionMenu(null);
+  };
+
+  const handleShapeMenuFlip = () => {
+    if (!shapeActionMenu) return;
+
+    const { shapeId, source, anchorCellId } = shapeActionMenu;
+    if (source === 'board' && anchorCellId) {
+      flipPlacedShapeAtCell(shapeId, anchorCellId);
+    } else {
+      flipShape(shapeId);
+    }
+
+    setShapeActionMenu(null);
   };
 
   const placeSelectedShapeByClientPoint = (clientX: number, clientY: number): boolean => {
@@ -906,7 +996,7 @@ const TriangleBoard: React.FC = () => {
                       strokeWidth="0"
                       className="triangle-cell"
                       onPointerDown={event => handleCellPointerDown(event, cell.id)}
-                      onPointerUp={() => handleCellPointerUp(cell.id)}
+                      onPointerUp={event => handleCellPointerUp(event, cell.id)}
                       onClick={() => handleCellClick(cell.id)}
                       style={{
                         cursor: isDisabled
@@ -980,29 +1070,12 @@ const TriangleBoard: React.FC = () => {
                   type="button"
                   className={`shape-card ${isSelected ? 'selected' : ''}`}
                   onPointerDown={event => handleShapeCardPointerDown(event, idx + 1)}
-                  onPointerUp={() => handleShapeCardPointerUp(idx + 1)}
+                  onPointerUp={event => handleShapeCardPointerUp(event, idx + 1)}
                   onContextMenu={event => {
                     event.preventDefault();
-                    flipShape(idx + 1);
                   }}
-                  title="点击旋转，Flip 按钮/右键翻转"
+                  title="点击打开菜单：旋转 / 翻转"
                 >
-                  <button
-                    type="button"
-                    className="shape-flip-btn"
-                    onPointerDown={event => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }}
-                    onClick={event => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      flipShape(idx + 1);
-                    }}
-                    aria-label={`Flip shape ${idx + 1}`}
-                  >
-                    Flip
-                  </button>
                   <svg
                     width={panelPreviewCanvasSize}
                     height={panelPreviewCanvasSize}
@@ -1055,6 +1128,25 @@ const TriangleBoard: React.FC = () => {
           Clear Board
         </button>
       </div>
+
+      {shapeActionMenu && (
+        <div
+          ref={shapeActionMenuRef}
+          className="shape-action-menu"
+          style={{
+            left: shapeActionMenu.x,
+            top: shapeActionMenu.y,
+          }}
+          onPointerDown={event => event.stopPropagation()}
+        >
+          <button type="button" className="shape-action-menu-btn" onClick={handleShapeMenuRotate}>
+            旋转
+          </button>
+          <button type="button" className="shape-action-menu-btn" onClick={handleShapeMenuFlip}>
+            翻转
+          </button>
+        </div>
+      )}
 
       {activePreviewShapeId && cursorPosition && (
         <div
