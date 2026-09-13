@@ -716,9 +716,15 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
       return;
     }
 
+    if (draggingFromPanel) {
+      event.preventDefault();
+      finalizePanelDragByClientPoint(event.clientX, event.clientY);
+      return;
+    }
+
     if (panelPointerShapeId !== shapeId) return;
 
-    if (!draggingFromPanel && isFinePointer) {
+    if (isFinePointer) {
       setShapeActionMenu({
         shapeId,
         x: event.clientX,
@@ -737,6 +743,18 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     setPanelPointerShapeId(null);
     setDraggingFromPanel(false);
     setDragStartPoint(null);
+  };
+
+  const handleShapeCardPointerCancel = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    if (panelPointerShapeId !== shapeId && selectedShape !== shapeId) {
+      return;
+    }
+
+    clearPanelDragState();
   };
 
   const handleShapeMenuRotate = () => {
@@ -1460,6 +1478,7 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
                   className={`shape-card ${isSelected ? 'selected' : ''}`}
                   onPointerDown={event => handleShapeCardPointerDown(event, idx + 1)}
                   onPointerUp={event => handleShapeCardPointerUp(event, idx + 1)}
+                  onPointerCancel={event => handleShapeCardPointerCancel(event, idx + 1)}
                   onContextMenu={event => {
                     event.preventDefault();
                   }}
