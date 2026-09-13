@@ -55,6 +55,18 @@ function hashStringFNV1a(input: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
+function getRowByTriangleId(triangleId: number): number {
+  return Math.floor(Math.sqrt(triangleId));
+}
+
+function mirrorTriangleIdHorizontally(triangleId: number): number {
+  const row = getRowByTriangleId(triangleId);
+  const rowStart = row * row;
+  const col = triangleId - rowStart;
+  const mirroredCol = 2 * row - col;
+  return rowStart + mirroredCol;
+}
+
 function buildLevelClearRecord(
   board: TriangleCell[],
   shapeRotations: Record<number, number>,
@@ -92,8 +104,35 @@ function buildLevelClearRecord(
     }))
     .sort((a, b) => a.cellId - b.cellId);
 
-  const layoutSignature = JSON.stringify({ level, shapeLayouts, cellStacks });
-  const hash = hashStringFNV1a(layoutSignature);
+  const originalLayoutForHash = {
+    level,
+    shapeLayouts: shapeLayouts.map(item => ({
+      shapeId: item.shapeId,
+      triangles: [...item.triangles],
+    })),
+    cellStacks,
+  };
+
+  const mirroredLayoutForHash = {
+    level,
+    shapeLayouts: shapeLayouts.map(item => ({
+      shapeId: item.shapeId,
+      triangles: item.triangles
+        .map(mirrorTriangleIdHorizontally)
+        .sort((a, b) => a - b),
+    })),
+    cellStacks: cellStacks
+      .map(item => ({
+        cellId: mirrorTriangleIdHorizontally(item.cellId),
+        shapeIds: [...item.shapeIds],
+      }))
+      .sort((a, b) => a.cellId - b.cellId),
+  };
+
+  const signatureA = JSON.stringify(originalLayoutForHash);
+  const signatureB = JSON.stringify(mirroredLayoutForHash);
+  const canonicalSignature = signatureA < signatureB ? signatureA : signatureB;
+  const hash = hashStringFNV1a(canonicalSignature);
 
   return {
     level,
