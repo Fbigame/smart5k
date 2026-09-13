@@ -57,6 +57,8 @@ const TriangleBoard: React.FC = () => {
   const [, setHoveredTriangleId] = useState<number | null>(null);
   const [snappedTriangles, setSnappedTriangles] = useState<number[] | null>(null);
   const [movingShapeId, setMovingShapeId] = useState<number | null>(null);
+  const [draggingShape, setDraggingShape] = useState(false);
+  const [dragStartPoint, setDragStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [shapeRotations, setShapeRotations] = useState<Record<number, number>>({});
   const [cursorPosition, setCursorPosition] = useState<{ x: number; y: number } | null>(null);
   const [level, setLevel] = useState(1);
@@ -170,58 +172,13 @@ const TriangleBoard: React.FC = () => {
   };
 
   const handleCellClick = (cellId: string) => {
+    if (movingShapeId) return;
     if (DISABLED_CELLS.has(cellId)) return;
 
     const clickedCell = board.find(c => c.id === cellId);
     if (!clickedCell) return;
 
     const clickedTriangleId = parseInt(cellId.replace('cell-', ''));
-
-    // 移动端友好：拾取后可直接点目标格放下（无需拖拽释放）
-    if (movingShapeId) {
-      if (clickedCell.shapeIds.includes(movingShapeId)) {
-        rotatePlacedShapeAtCell(movingShapeId, cellId);
-        return;
-      }
-
-      const rotationStep = shapeRotations[movingShapeId] ?? 0;
-      const clickedCenter = getTriangleCenter(clickedCell, triangleSize);
-      const bestSnap = findBestSnapPlacement(
-        movingShapeId,
-        clickedCenter.x,
-        clickedCenter.y,
-        rotationStep,
-        movingShapeId
-      );
-      const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, clickedTriangleId, movingShapeId, rotationStep);
-
-      if (mappedTriangles) {
-        const movingId = movingShapeId;
-        setBoard(prevBoard =>
-          prevBoard.map(cell => {
-            const id = parseInt(cell.id.replace('cell-', ''));
-            let nextShapeIds = cell.shapeIds.filter(shapeId => shapeId !== movingId);
-
-            if (mappedTriangles.includes(id)) {
-              nextShapeIds = [...nextShapeIds, movingId];
-            }
-
-            const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
-            return {
-              ...cell,
-              shapeIds: nextShapeIds,
-              filled: nextShapeIds.length > 0,
-              shapeId: nextTopShapeId,
-            };
-          })
-        );
-      }
-
-      setMovingShapeId(null);
-      setHoveredTriangleId(null);
-      setSnappedTriangles(null);
-      return;
-    }
 
     // 只有当从右侧选中了一个已定义的形状时，才能放置
     if (!selectedShape || !SHAPES.find(s => s.id === selectedShape)) return;
@@ -269,8 +226,71 @@ const TriangleBoard: React.FC = () => {
 
     setMovingShapeId(cell.shapeId);
     setHoveredTriangleId(parseInt(cellId.replace('cell-', '')));
+    setDraggingShape(false);
     setSnappedTriangles(null);
+    setDragStartPoint(null);
     setSelectedShape(null);
+  };
+
+  const handleCellPointerDown = (event: React.PointerEvent<SVGPolygonElement>, cellId: string) => {
+    setDragStartPoint({ x: event.clientX, y: event.clientY });
+    handleCellMouseDown(cellId);
+  };
+
+  const handleCellPointerUp = (cellId: string) => {
+    if (!movingShapeId) return;
+
+    const cell = board.find(c => c.id === cellId);
+    if (!cell) return;
+
+    if (!draggingShape && cell.shapeIds.includes(movingShapeId)) {
+      rotatePlacedShapeAtCell(movingShapeId, cellId);
+      setMovingShapeId(null);
+      setHoveredTriangleId(null);
+      setSnappedTriangles(null);
+      setDraggingShape(false);
+      setDragStartPoint(null);
+      return;
+    }
+
+    const rotationStep = shapeRotations[movingShapeId] ?? 0;
+    const clickedCenter = getTriangleCenter(cell, triangleSize);
+    const bestSnap = findBestSnapPlacement(
+      movingShapeId,
+      clickedCenter.x,
+      clickedCenter.y,
+      rotationStep,
+      movingShapeId
+    );
+    const mappedTriangles = snappedTriangles ?? bestSnap?.mappedTriangles ?? getMappedTriangles(movingShapeId, parseInt(cellId.replace('cell-', '')), movingShapeId, rotationStep);
+
+    if (mappedTriangles) {
+      const movingId = movingShapeId;
+      setBoard(prevBoard =>
+        prevBoard.map(item => {
+          const id = parseInt(item.id.replace('cell-', ''));
+          let nextShapeIds = item.shapeIds.filter(shapeId => shapeId !== movingId);
+
+          if (mappedTriangles.includes(id)) {
+            nextShapeIds = [...nextShapeIds, movingId];
+          }
+
+          const nextTopShapeId = nextShapeIds.length > 0 ? nextShapeIds[nextShapeIds.length - 1] : undefined;
+          return {
+            ...item,
+            shapeIds: nextShapeIds,
+            filled: nextShapeIds.length > 0,
+            shapeId: nextTopShapeId,
+          };
+        })
+      );
+    }
+
+    setMovingShapeId(null);
+    setHoveredTriangleId(null);
+    setSnappedTriangles(null);
+    setDraggingShape(false);
+    setDragStartPoint(null);
   };
 
   const removeShapeFromBoard = (shapeId: number) => {
@@ -365,6 +385,8 @@ const TriangleBoard: React.FC = () => {
     setMovingShapeId(null);
     setHoveredTriangleId(null);
     setSnappedTriangles(null);
+    setDraggingShape(false);
+    setDragStartPoint(null);
   };
 
   useEffect(() => {
@@ -643,6 +665,14 @@ const TriangleBoard: React.FC = () => {
   const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
 
+    if (movingShapeId && dragStartPoint && !draggingShape) {
+      const dx = event.clientX - dragStartPoint.x;
+      const dy = event.clientY - dragStartPoint.y;
+      if (dx * dx + dy * dy > 36) {
+        setDraggingShape(true);
+      }
+    }
+
     const rect = event.currentTarget.getBoundingClientRect();
     const mouseX = ((event.clientX - rect.left) / rect.width) * svgWidth;
     const mouseY = ((event.clientY - rect.top) / rect.height) * svgHeight;
@@ -743,7 +773,8 @@ const TriangleBoard: React.FC = () => {
                       stroke="none"
                       strokeWidth="0"
                       className="triangle-cell"
-                      onPointerDown={() => handleCellMouseDown(cell.id)}
+                      onPointerDown={event => handleCellPointerDown(event, cell.id)}
+                      onPointerUp={() => handleCellPointerUp(cell.id)}
                       onClick={() => handleCellClick(cell.id)}
                       style={{
                         cursor: isDisabled
