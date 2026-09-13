@@ -463,8 +463,8 @@ if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
               return (
                 <svg
                   key={idx + 1}
-                  width="110"
-                  height="130"
+                  width="130"
+                  height="150"
                   viewBox="0 0 200 250"
                   preserveAspectRatio="xMidYMid meet"
                   onClick={() => handleShapeSelect(idx + 1)}
@@ -488,7 +488,7 @@ if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
                             return (
                               <polygon
                                 key={cell.id}
-                                points={getPreviewTriangleCoords(cell, baseCell, 55, 100, 125)}
+                                points={getPreviewTriangleCoords(cell, baseCell, 65, 100, 125)}
                                 fill={color}
                                 stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
                                 strokeWidth={isSelected ? "2" : "1"}
