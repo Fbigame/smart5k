@@ -488,7 +488,7 @@ if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
                             return (
                               <polygon
                                 key={cell.id}
-                                points={getPreviewTriangleCoords(cell, baseCell, 75, 100, 110)}
+                                points={getPreviewTriangleCoords(cell, baseCell, 75, 100, 95)}
                                 fill={color}
                                 stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
                                 strokeWidth={isSelected ? "2" : "1"}
