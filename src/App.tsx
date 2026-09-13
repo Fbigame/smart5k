@@ -88,6 +88,13 @@ function getMiniTrianglePoints(cell: MiniTriangleCell, size: number): string {
   return `${colX - size / 2},${rowY} ${colX + size / 2},${rowY} ${colX},${rowY + h}`
 }
 
+function hasLayoutContent(layout: LayoutDetails | null): boolean {
+  if (!layout) return false
+  const hasStacks = Array.isArray(layout.cellStacks) && layout.cellStacks.length > 0
+  const hasShapes = Array.isArray(layout.shapeLayouts) && layout.shapeLayouts.length > 0
+  return hasStacks || hasShapes
+}
+
 function App() {
   const [started, setStarted] = useState(false)
   const [stats, setStats] = useState<ClearStats>({ totalSolutions: 0 })
@@ -249,14 +256,21 @@ function App() {
               key={`layout-cell-${cell.id}`}
               points={getMiniTrianglePoints(cell, size)}
               fill={fill}
-              stroke={disabled ? 'none' : 'rgba(40, 77, 116, 0.2)'}
-              strokeWidth={disabled ? 0 : 0.9}
+              stroke="none"
+              strokeWidth={0}
               opacity={disabled ? 0 : 0.95}
             />
           )
         })}
       </svg>
     )
+  }
+
+  const getDisplayLayout = (detail: SolutionDetail, mode: 'first' | 'latest'): LayoutDetails | null => {
+    if (mode === 'first') {
+      return hasLayoutContent(detail.firstLayout) ? detail.firstLayout : detail.latestLayout
+    }
+    return hasLayoutContent(detail.latestLayout) ? detail.latestLayout : detail.firstLayout
   }
 
   return (
@@ -352,7 +366,7 @@ function App() {
                 <p><strong>Hash：</strong>{selectedDetail.hash}</p>
                 <p><strong>首次解出：</strong>{formatTime(selectedDetail.firstSolvedAt)}</p>
                 <p><strong>总人数：</strong>{selectedDetail.solvers}</p>
-                {renderLayoutBoard(detailMode === 'first' ? selectedDetail.firstLayout : selectedDetail.latestLayout)}
+                {renderLayoutBoard(getDisplayLayout(selectedDetail, detailMode))}
               </div>
             )}
           </section>
