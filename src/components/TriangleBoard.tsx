@@ -756,6 +756,20 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     setShapeActionMenu(null);
   };
 
+  const clearPanelDragState = () => {
+    setSelectedShape(null);
+    setPanelPointerShapeId(null);
+    setDraggingFromPanel(false);
+    setHoveredTriangleId(null);
+    setSnappedTriangles(null);
+    setDragStartPoint(null);
+  };
+
+  const finalizePanelDragByClientPoint = (clientX: number, clientY: number) => {
+    placeSelectedShapeByClientPoint(clientX, clientY);
+    clearPanelDragState();
+  };
+
   const placeSelectedShapeByClientPoint = (clientX: number, clientY: number): boolean => {
     if (!selectedShape || !draggingFromPanel || !boardSvgRef.current) return false;
 
@@ -1060,17 +1074,19 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     if (!selectedShape || !draggingFromPanel) return;
 
     const handleGlobalUp = (event: PointerEvent) => {
-      placeSelectedShapeByClientPoint(event.clientX, event.clientY);
-      setSelectedShape(null);
-      setPanelPointerShapeId(null);
-      setDraggingFromPanel(false);
-      setHoveredTriangleId(null);
-      setSnappedTriangles(null);
-      setDragStartPoint(null);
+      finalizePanelDragByClientPoint(event.clientX, event.clientY);
+    };
+
+    const handleGlobalCancel = (event: PointerEvent) => {
+      finalizePanelDragByClientPoint(event.clientX, event.clientY);
     };
 
     window.addEventListener('pointerup', handleGlobalUp);
-    return () => window.removeEventListener('pointerup', handleGlobalUp);
+    window.addEventListener('pointercancel', handleGlobalCancel);
+    return () => {
+      window.removeEventListener('pointerup', handleGlobalUp);
+      window.removeEventListener('pointercancel', handleGlobalCancel);
+    };
   }, [selectedShape, draggingFromPanel, snappedTriangles, shapeRotations, board]);
 
   const cellCenters = useMemo(() => {
@@ -1385,7 +1401,10 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
         </div>
 
         {/* 右侧：形状选择与预览 */}
-        <div className="shape-section" onPointerUp={handleShapeSectionPointerUp}>
+        <div
+          className={`shape-section ${panelPointerShapeId ? 'drag-origin-active' : ''}`}
+          onPointerUp={handleShapeSectionPointerUp}
+        >
           <div className="quick-action-toolbar" role="group" aria-label="快速操作模式">
             <button
               type="button"

@@ -81,6 +81,11 @@
   scrollbar-width: none;
 }
 
+.triangle-game-container .shape-section.drag-origin-active {
+  overflow-y: hidden;
+  touch-action: none;
+}
+
 .triangle-game-container .quick-action-toolbar {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
