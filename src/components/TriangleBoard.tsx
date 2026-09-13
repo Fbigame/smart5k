@@ -131,9 +131,9 @@ const TriangleBoard: React.FC = () => {
                 let stroke: string;
 
                 if (isDisabled) {
-                  // 禁用的三角形显示为浅灰色
-                  fill = '#d3d3d3';
-                  stroke = '#aaa';
+                  // 禁用的三角形完全透明
+                  fill = 'transparent';
+                  stroke = 'transparent';
                 } else if (cell.filled) {
                   fill = SHAPE_COLORS[cell.shapeId ? cell.shapeId - 1 : 0];
                   stroke = '#ddd';
