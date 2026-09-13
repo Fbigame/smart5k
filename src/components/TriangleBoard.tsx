@@ -22,12 +22,99 @@ interface ShapeActionMenuState {
   anchorCellId?: string;
 }
 
+interface LevelClearRecord {
+  level: number;
+  hash: string;
+  clearedAt: string;
+  shapeLayouts: Array<{
+    shapeId: number;
+    rotation: number;
+    flipped: boolean;
+    triangles: number[];
+  }>;
+  cellStacks: Array<{
+    cellId: number;
+    shapeIds: number[];
+  }>;
+}
+
 const SHAPE_COLORS = [
   '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F',
   '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0A1', '#E59866', '#AED6F1',
 ];
 
 const MIRROR_SYMMETRIC_SHAPE_IDS = new Set([1, 2, 5, 6, 11]);
+const LEVEL_CLEAR_RECORDS_KEY = 'triangle-level-clear-records';
+
+function hashStringFNV1a(input: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function buildLevelClearRecord(
+  board: TriangleCell[],
+  shapeRotations: Record<number, number>,
+  shapeFlips: Record<number, boolean>,
+  level: number
+): LevelClearRecord {
+  const shapeIdSet = new Set<number>();
+  for (const cell of board) {
+    for (const shapeId of cell.shapeIds) {
+      shapeIdSet.add(shapeId);
+    }
+  }
+
+  const shapeLayouts = [...shapeIdSet]
+    .sort((a, b) => a - b)
+    .map(shapeId => {
+      const triangles = board
+        .filter(cell => cell.shapeIds.includes(shapeId))
+        .map(cell => parseInt(cell.id.replace('cell-', '')))
+        .sort((a, b) => a - b);
+
+      return {
+        shapeId,
+        rotation: shapeRotations[shapeId] ?? 0,
+        flipped: shapeFlips[shapeId] ?? false,
+        triangles,
+      };
+    });
+
+  const cellStacks = board
+    .filter(cell => cell.shapeIds.length > 0)
+    .map(cell => ({
+      cellId: parseInt(cell.id.replace('cell-', '')),
+      shapeIds: [...cell.shapeIds],
+    }))
+    .sort((a, b) => a.cellId - b.cellId);
+
+  const layoutSignature = JSON.stringify({ level, shapeLayouts, cellStacks });
+  const uniqueSeed = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const hash = `${hashStringFNV1a(layoutSignature)}-${hashStringFNV1a(uniqueSeed)}`;
+
+  return {
+    level,
+    hash,
+    clearedAt: new Date().toISOString(),
+    shapeLayouts,
+    cellStacks,
+  };
+}
+
+function persistLevelClearRecord(record: LevelClearRecord): void {
+  try {
+    const raw = window.localStorage.getItem(LEVEL_CLEAR_RECORDS_KEY);
+    const existing = raw ? (JSON.parse(raw) as LevelClearRecord[]) : [];
+    existing.push(record);
+    window.localStorage.setItem(LEVEL_CLEAR_RECORDS_KEY, JSON.stringify(existing));
+  } catch {
+    // Ignore storage failures in private mode or restricted environments.
+  }
+}
 
 // 创建三角形棋盘
 function createTriangleBoard(rows: number = 9): TriangleCell[] {
@@ -115,13 +202,17 @@ const TriangleBoard: React.FC = () => {
     // 检查所有允许的三角形是否都被填充（81 - 9 禁用 = 72 个允许）
     const allowed = board.filter(cell => !DISABLED_CELLS.has(cell.id));
     if (allowed.length > 0 && allowed.every(cell => cell.filled)) {
+      const record = buildLevelClearRecord(board, shapeRotations, shapeFlips, level);
+      persistLevelClearRecord(record);
+      console.info('Level clear record:', record);
+
       alert(`🎉 Level ${level} Complete!`);
       setLevel(level + 1);
       setBoard(prevBoard => prevBoard.map(cell => ({ ...cell, filled: false, shapeId: undefined, shapeIds: [] })));
       setMovingShapeId(null);
       setSelectedShape(null);
     }
-  }, [board, level]);
+  }, [board, level, shapeRotations, shapeFlips]);
 
   const getMappedTriangles = (
     shapeId: number,
