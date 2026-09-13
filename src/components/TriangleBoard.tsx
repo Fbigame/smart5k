@@ -44,18 +44,10 @@ function createTriangleBoard(rows: number = 9): TriangleCell[] {
 // 定义禁用的三角形位置
 const DISABLED_CELLS = new Set<string>();
 
-// 顶部第 0 行的 1 个三角形（第一行就是1个，所以全部禁用）
-DISABLED_CELLS.add('cell-0');
-
-// 左下角第 8 行的前 4 个三角形（第8行是17个三角形，索引从前面的 1+3+5+7+9+11+13+15=64 开始）
-for (let i = 64; i < 64 + 4; i++) {
-  DISABLED_CELLS.add(`cell-${i}`);
-}
-
-// 右下角第 8 行的后 4 个三角形
-for (let i = 80; i < 84; i++) {
-  DISABLED_CELLS.add(`cell-${i}`);
-}
+// 禁用的三角形编号：0（顶部） + 49,64,65,66（底部左侧） + 63,78,79,80（底部右侧）
+[0, 49, 64, 65, 66, 63, 78, 79, 80].forEach(id => {
+  DISABLED_CELLS.add(`cell-${id}`);
+});
 
 const TriangleBoard: React.FC = () => {
   const [board, setBoard] = useState<TriangleCell[]>([]);
