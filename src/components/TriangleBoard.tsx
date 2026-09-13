@@ -625,34 +625,23 @@ const TriangleBoard: React.FC = () => {
                 const isDisabled = DISABLED_CELLS.has(cell.id);
                 const topShapeId = cell.shapeIds.length > 0 ? cell.shapeIds[cell.shapeIds.length - 1] : undefined;
                 let fill: string;
-                let stroke: string;
 
                 if (isDisabled) {
                   // 禁用的三角形完全透明
                   fill = 'transparent';
-                  stroke = 'transparent';
                 } else if (cell.shapeIds.length > 0) {
                   fill = SHAPE_COLORS[topShapeId ? topShapeId - 1 : 0];
-                  stroke = cell.shapeIds.length > 1 ? '#ff9f1c' : '#ddd';
                 } else {
                   fill = '#fff';
-                  stroke = '#999';
                 }
-
-                // 计算三角形中心用于显示编号
-                const coords = getTriangleCoords(cell, triangleSize).split(' ');
-                const points = coords.map(c => c.split(',').map(Number));
-                const centerX = (points[0][0] + points[1][0] + points[2][0]) / 3;
-                const centerY = (points[0][1] + points[1][1] + points[2][1]) / 3;
-                const cellNum = parseInt(cell.id.replace('cell-', ''));
 
                 return (
                   <g key={cell.id}>
                     <polygon
                       points={getTriangleCoords(cell, triangleSize)}
                       fill={fill}
-                      stroke={stroke}
-                      strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
+                      stroke="none"
+                      strokeWidth="0"
                       className="triangle-cell"
                       onMouseDown={() => handleCellMouseDown(cell.id)}
                       onMouseUp={() => handleCellMouseUp(cell.id)}
@@ -670,19 +659,6 @@ const TriangleBoard: React.FC = () => {
                         pointerEvents: isDisabled ? 'none' : 'auto',
                       }}
                     />
-                    <text
-                      x={centerX}
-                      y={centerY}
-                      textAnchor="middle"
-                      dominantBaseline="middle"
-                      fontSize="10"
-                      fontWeight="bold"
-                      fill={isDisabled ? '#888' : '#333'}
-                      pointerEvents="none"
-                      style={{ userSelect: 'none' }}
-                    >
-                      {cellNum}
-                    </text>
                   </g>
                 );
               })}
@@ -703,8 +679,8 @@ const TriangleBoard: React.FC = () => {
                         key={`follow-${triangleId}`}
                         points={getTriangleCoords(cell, triangleSize)}
                         fill={SHAPE_COLORS[shapeId - 1]}
-                        stroke={SHAPE_COLORS[shapeId - 1]}
-                        strokeWidth="2"
+                        stroke="none"
+                        strokeWidth="0"
                         opacity="0.4"
                         pointerEvents="none"
                       />
@@ -771,8 +747,8 @@ const TriangleBoard: React.FC = () => {
                                 key={`${shape.id}-${polygonIndex}`}
                                 points={points}
                                 fill={color}
-                                stroke={isSelected ? SHAPE_COLORS[idx] : '#666'}
-                                strokeWidth={isSelected ? '2' : '1'}
+                                stroke="none"
+                                strokeWidth="0"
                                 opacity="0.95"
                               />
                             );
@@ -831,8 +807,8 @@ const TriangleBoard: React.FC = () => {
                   key={`cursor-preview-${shape.id}-${polygonIndex}`}
                   points={points}
                   fill={SHAPE_COLORS[activePreviewShapeId - 1]}
-                  stroke={SHAPE_COLORS[activePreviewShapeId - 1]}
-                  strokeWidth="1.5"
+                  stroke="none"
+                  strokeWidth="0"
                   opacity="0.7"
                 />
               ));
