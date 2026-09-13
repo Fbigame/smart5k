@@ -49,6 +49,78 @@ function extractLayoutDetails(record) {
   };
 }
 
+function hashStringFNV1a(input) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function getRowByTriangleId(triangleId) {
+  return Math.floor(Math.sqrt(triangleId));
+}
+
+function mirrorTriangleIdHorizontally(triangleId) {
+  const row = getRowByTriangleId(triangleId);
+  const rowStart = row * row;
+  const col = triangleId - rowStart;
+  const mirroredCol = 2 * row - col;
+  return rowStart + mirroredCol;
+}
+
+function computeCanonicalSolutionHash(layoutDetails) {
+  const shapeLayouts = Array.isArray(layoutDetails?.shapeLayouts)
+    ? layoutDetails.shapeLayouts
+        .map(item => ({
+          shapeId: Number(item?.shapeId) || 0,
+          triangles: Array.isArray(item?.triangles)
+            ? item.triangles.map(value => Number(value)).filter(Number.isFinite).sort((a, b) => a - b)
+            : [],
+        }))
+        .sort((a, b) => a.shapeId - b.shapeId)
+    : [];
+
+  const cellStacks = Array.isArray(layoutDetails?.cellStacks)
+    ? layoutDetails.cellStacks
+        .map(item => ({
+          cellId: Number(item?.cellId),
+          shapeIds: Array.isArray(item?.shapeIds)
+            ? item.shapeIds.map(value => Number(value)).filter(Number.isFinite)
+            : [],
+        }))
+        .filter(item => Number.isFinite(item.cellId))
+        .sort((a, b) => a.cellId - b.cellId)
+    : [];
+
+  const originalLayoutForHash = {
+    shapeLayouts: shapeLayouts.map(item => ({
+      shapeId: item.shapeId,
+      triangles: [...item.triangles],
+    })),
+    cellStacks,
+  };
+
+  const mirroredLayoutForHash = {
+    shapeLayouts: shapeLayouts.map(item => ({
+      shapeId: item.shapeId,
+      triangles: item.triangles.map(mirrorTriangleIdHorizontally).sort((a, b) => a - b),
+    })),
+    cellStacks: cellStacks
+      .map(item => ({
+        cellId: mirrorTriangleIdHorizontally(item.cellId),
+        shapeIds: [...item.shapeIds],
+      }))
+      .sort((a, b) => a.cellId - b.cellId),
+  };
+
+  const signatureA = JSON.stringify(originalLayoutForHash);
+  const signatureB = JSON.stringify(mirroredLayoutForHash);
+  const canonicalSignature = signatureA < signatureB ? signatureA : signatureB;
+  return hashStringFNV1a(canonicalSignature);
+}
+
 async function ensureDataFile() {
   await fs.mkdir(dataDir, { recursive: true });
   try {
@@ -221,7 +293,7 @@ app.get('/api/solutions/:hash', async (req, res) => {
 
 app.post('/api/clears', async (req, res) => {
   const record = req.body;
-  if (!record || typeof record.hash !== 'string') {
+  if (!record || typeof record !== 'object') {
     res.status(400).json({ error: 'Invalid record payload' });
     return;
   }
@@ -230,8 +302,18 @@ app.post('/api/clears', async (req, res) => {
     const store = await readStore();
     const nowIso = new Date().toISOString();
     const layoutDetails = extractLayoutDetails(record);
+    const computedHash = computeCanonicalSolutionHash(layoutDetails);
+    const solutionHash = typeof computedHash === 'string' && computedHash.length > 0
+      ? computedHash
+      : (typeof record.hash === 'string' ? record.hash : '');
+
+    if (!solutionHash) {
+      res.status(400).json({ error: 'Invalid record payload' });
+      return;
+    }
+
     const solutions = Array.isArray(store.solutions) ? store.solutions : [];
-    const existedIndex = solutions.findIndex(item => item.hash === record.hash);
+    const existedIndex = solutions.findIndex(item => item.hash === solutionHash);
 
     if (existedIndex >= 0) {
       const current = solutions[existedIndex];
@@ -245,7 +327,7 @@ app.post('/api/clears', async (req, res) => {
       };
     } else {
       solutions.push({
-        hash: record.hash,
+        hash: solutionHash,
         firstSolvedAt: nowIso,
         lastSolvedAt: nowIso,
         solvers: 1,
@@ -259,7 +341,7 @@ app.post('/api/clears', async (req, res) => {
     store.solutions = solutions;
     await writeStore(store);
 
-    const savedSolution = solutions.find(item => item.hash === record.hash) ?? null;
+    const savedSolution = solutions.find(item => item.hash === solutionHash) ?? null;
 
     res.json({
       saved: existedIndex < 0,
