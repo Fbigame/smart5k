@@ -102,14 +102,14 @@ const TriangleBoard: React.FC = () => {
     }
   };
 
-  const triangleSize = 50; // 三角形的边长
+  const triangleSize = 65; // 三角形的边长
   const h = (triangleSize * Math.sqrt(3)) / 2;
   const svgHeight = 9 * h + 40;
   const svgWidth = 18 * triangleSize / 2 + 40;
 
   // 限制最大尺寸，占用左侧2/3空间
-  const displayWidth = Math.min(svgWidth, 650);
-  const displayHeight = Math.min(svgHeight, 750);
+  const displayWidth = Math.min(svgWidth, 800);
+  const displayHeight = Math.min(svgHeight, 900);
 
   return (
     <div className="game-container">
