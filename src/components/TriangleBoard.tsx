@@ -27,6 +27,8 @@ const SHAPE_COLORS = [
   '#BB8FCE', '#85C1E2', '#F8B88B', '#52C0A1', '#E59866', '#AED6F1',
 ];
 
+const MIRROR_SYMMETRIC_SHAPE_IDS = new Set([1, 2, 5, 6, 11]);
+
 // 创建三角形棋盘
 function createTriangleBoard(rows: number = 9): TriangleCell[] {
   const cells: TriangleCell[] = [];
@@ -519,6 +521,11 @@ const TriangleBoard: React.FC = () => {
     if (!shapeActionMenu) return;
 
     const { shapeId, source, anchorCellId } = shapeActionMenu;
+    if (MIRROR_SYMMETRIC_SHAPE_IDS.has(shapeId)) {
+      setShapeActionMenu(null);
+      return;
+    }
+
     if (source === 'board' && anchorCellId) {
       flipPlacedShapeAtCell(shapeId, anchorCellId);
     } else {
@@ -1168,9 +1175,11 @@ const TriangleBoard: React.FC = () => {
           <button type="button" className="shape-action-menu-btn" onClick={handleShapeMenuRotate}>
             旋转
           </button>
-          <button type="button" className="shape-action-menu-btn" onClick={handleShapeMenuFlip}>
-            翻转
-          </button>
+          {!MIRROR_SYMMETRIC_SHAPE_IDS.has(shapeActionMenu.shapeId) && (
+            <button type="button" className="shape-action-menu-btn" onClick={handleShapeMenuFlip}>
+              翻转
+            </button>
+          )}
         </div>
       )}
 
