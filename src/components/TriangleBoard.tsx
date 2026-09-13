@@ -220,7 +220,13 @@ const TriangleBoard: React.FC = () => {
         c.direction === relPos.direction
       );
       
-      if (!targetCell || DISABLED_CELLS.has(targetCell.id) || targetCell.filled) {
+if (!targetCell || DISABLED_CELLS.has(targetCell.id)) {
+                      allValid = false;
+                      break;
+                    }
+                    
+                    // 允许覆盖同一个形状的旧位置，但不允许覆盖其他形状
+                    if (targetCell.filled && targetCell.shapeId !== selectedShape) {
         allValid = false;
         break;
       }
