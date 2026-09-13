@@ -675,15 +675,29 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
 
     if (movingShapeId) return;
 
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+
     setShapeActionMenu(null);
     setPanelPointerShapeId(shapeId);
     setSelectedShape(null);
     setDraggingFromPanel(false);
     setDragStartPoint({ x: event.clientX, y: event.clientY });
     setSnappedTriangles(null);
+
+    if (!isFinePointer) {
+      // 移动端按下即进入拖拽态，避免滚动/取消导致无法跨区域拖放。
+      setDraggingFromPanel(true);
+      setSelectedShape(shapeId);
+    }
   };
 
   const handleShapeCardPointerUp = (event: React.PointerEvent<HTMLButtonElement>, shapeId: number) => {
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
     if (quickActionMode !== 'none') {
       event.preventDefault();
 
@@ -704,7 +718,7 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
 
     if (panelPointerShapeId !== shapeId) return;
 
-    if (!draggingFromPanel) {
+    if (!draggingFromPanel && isFinePointer) {
       setShapeActionMenu({
         shapeId,
         x: event.clientX,
