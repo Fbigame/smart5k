@@ -136,17 +136,38 @@ const TriangleBoard: React.FC = () => {
                 stroke = '#999';
               }
 
+              // 计算三角形中心用于显示编号
+              const coords = getTriangleCoords(cell).split(' ');
+              const points = coords.map(c => c.split(',').map(Number));
+              const centerX = (points[0][0] + points[1][0] + points[2][0]) / 3;
+              const centerY = (points[0][1] + points[1][1] + points[2][1]) / 3;
+              const cellNum = parseInt(cell.id.replace('cell-', ''));
+
               return (
-                <polygon
-                  key={cell.id}
-                  points={getTriangleCoords(cell)}
-                  fill={fill}
-                  stroke={stroke}
-                  strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
-                  className="triangle-cell"
-                  onClick={() => handleCellClick(cell.id)}
-                  style={{ cursor: !isDisabled && selectedShape && !cell.filled ? 'pointer' : 'default', pointerEvents: isDisabled ? 'none' : 'auto' }}
-                />
+                <g key={cell.id}>
+                  <polygon
+                    points={getTriangleCoords(cell)}
+                    fill={fill}
+                    stroke={stroke}
+                    strokeWidth={cell.filled || isDisabled ? '0.5' : '1'}
+                    className="triangle-cell"
+                    onClick={() => handleCellClick(cell.id)}
+                    style={{ cursor: !isDisabled && selectedShape && !cell.filled ? 'pointer' : 'default', pointerEvents: isDisabled ? 'none' : 'auto' }}
+                  />
+                  <text
+                    x={centerX}
+                    y={centerY}
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                    fontSize="10"
+                    fontWeight="bold"
+                    fill={isDisabled ? '#888' : '#333'}
+                    pointerEvents="none"
+                    style={{ userSelect: 'none' }}
+                  >
+                    {cellNum}
+                  </text>
+                </g>
               );
             })}
           </svg>
