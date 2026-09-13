@@ -21,7 +21,6 @@ interface ClearStats {
 
 interface SolutionSummary {
   hash: string
-  level: number
   solvers: number
   firstSolvedAt: string
   lastSolvedAt: string
@@ -324,7 +323,6 @@ function App() {
                 >
                   <p className="solution-rank">#{(currentPage - 1) * pageSize + index + 1}</p>
                   <p><strong>Hash：</strong>{item.hash}</p>
-                  <p><strong>关卡：</strong>{item.level}</p>
                   <p><strong>总人数：</strong>{item.solvers}</p>
                   <p><strong>首次解出：</strong>{formatTime(item.firstSolvedAt)}</p>
                 </article>

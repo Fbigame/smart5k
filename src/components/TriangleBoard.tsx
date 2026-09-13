@@ -23,7 +23,6 @@ interface ShapeActionMenuState {
 }
 
 export interface LevelClearRecord {
-  level: number;
   hash: string;
   clearedAt: string;
   shapeLayouts: Array<{
@@ -74,8 +73,7 @@ function mirrorTriangleIdHorizontally(triangleId: number): number {
 function buildLevelClearRecord(
   board: TriangleCell[],
   shapeRotations: Record<number, number>,
-  shapeFlips: Record<number, boolean>,
-  level: number
+  shapeFlips: Record<number, boolean>
 ): LevelClearRecord {
   const shapeIdSet = new Set<number>();
   for (const cell of board) {
@@ -109,7 +107,6 @@ function buildLevelClearRecord(
     .sort((a, b) => a.cellId - b.cellId);
 
   const originalLayoutForHash = {
-    level,
     shapeLayouts: shapeLayouts.map(item => ({
       shapeId: item.shapeId,
       triangles: [...item.triangles],
@@ -118,7 +115,6 @@ function buildLevelClearRecord(
   };
 
   const mirroredLayoutForHash = {
-    level,
     shapeLayouts: shapeLayouts.map(item => ({
       shapeId: item.shapeId,
       triangles: item.triangles
@@ -139,7 +135,6 @@ function buildLevelClearRecord(
   const hash = hashStringFNV1a(canonicalSignature);
 
   return {
-    level,
     hash,
     clearedAt: new Date().toISOString(),
     shapeLayouts,
@@ -254,7 +249,7 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     // 检查所有允许的三角形是否都被填充（81 - 9 禁用 = 72 个允许）
     const allowed = board.filter(cell => !DISABLED_CELLS.has(cell.id));
     if (allowed.length > 0 && allowed.every(cell => cell.filled)) {
-      const record = buildLevelClearRecord(board, shapeRotations, shapeFlips, level);
+      const record = buildLevelClearRecord(board, shapeRotations, shapeFlips);
       const persistResult = persistLevelClearRecord(record);
       console.info('Level clear record:', record, 'existingSolution:', persistResult.exists);
       onLevelCleared?.(record);

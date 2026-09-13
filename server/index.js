@@ -74,7 +74,6 @@ function normalizeStore(rawParsed) {
         const layoutDetails = extractLayoutDetails(item);
         grouped.set(item.hash, {
           hash: item.hash,
-          level: Number(item.level) || 1,
           firstSolvedAt: clearedAt,
           lastSolvedAt: clearedAt,
           solvers: 1,
@@ -100,7 +99,6 @@ function normalizeStore(rawParsed) {
         .filter(item => item && typeof item.hash === 'string')
         .map(item => ({
           hash: item.hash,
-          level: Number(item.level) || 1,
           firstSolvedAt: typeof item.firstSolvedAt === 'string' ? item.firstSolvedAt : new Date().toISOString(),
           lastSolvedAt: typeof item.lastSolvedAt === 'string' ? item.lastSolvedAt : new Date().toISOString(),
           solvers: Math.max(1, Number(item.solvers) || 1),
@@ -148,7 +146,6 @@ function listSolutions(store) {
     .sort((a, b) => a.firstSolvedAt.localeCompare(b.firstSolvedAt) || b.solvers - a.solvers)
     .map(item => ({
       hash: item.hash,
-      level: item.level,
       solvers: item.solvers,
       firstSolvedAt: item.firstSolvedAt,
       lastSolvedAt: item.lastSolvedAt,
@@ -162,7 +159,6 @@ function getSolutionDetail(store, hash) {
 
   return {
     hash: item.hash,
-    level: item.level,
     solvers: item.solvers,
     firstSolvedAt: item.firstSolvedAt,
     lastSolvedAt: item.lastSolvedAt,
@@ -225,7 +221,7 @@ app.get('/api/solutions/:hash', async (req, res) => {
 
 app.post('/api/clears', async (req, res) => {
   const record = req.body;
-  if (!record || typeof record.hash !== 'string' || typeof record.level !== 'number') {
+  if (!record || typeof record.hash !== 'string') {
     res.status(400).json({ error: 'Invalid record payload' });
     return;
   }
@@ -241,7 +237,6 @@ app.post('/api/clears', async (req, res) => {
       const current = solutions[existedIndex];
       solutions[existedIndex] = {
         ...current,
-        level: Number(record.level) || current.level,
         solvers: (Number(current.solvers) || 0) + 1,
         lastSolvedAt: nowIso,
         firstLayout: current.firstLayout ?? layoutDetails,
@@ -251,7 +246,6 @@ app.post('/api/clears', async (req, res) => {
     } else {
       solutions.push({
         hash: record.hash,
-        level: Number(record.level) || 1,
         firstSolvedAt: nowIso,
         lastSolvedAt: nowIso,
         solvers: 1,
@@ -273,7 +267,6 @@ app.post('/api/clears', async (req, res) => {
       solution: savedSolution
         ? {
             hash: savedSolution.hash,
-            level: savedSolution.level,
             solvers: savedSolution.solvers,
             firstSolvedAt: savedSolution.firstSolvedAt,
             lastSolvedAt: savedSolution.lastSolvedAt,
