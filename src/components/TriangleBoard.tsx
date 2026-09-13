@@ -323,6 +323,27 @@ const TriangleBoard: React.FC = () => {
     };
   };
 
+  const expandTrianglePoints = (points: string, expandBy: number = 0.5): string => {
+    const vertices = points.split(' ').map(point => {
+      const [x, y] = point.split(',').map(Number);
+      return { x, y };
+    });
+
+    const centerX = (vertices[0].x + vertices[1].x + vertices[2].x) / 3;
+    const centerY = (vertices[0].y + vertices[1].y + vertices[2].y) / 3;
+
+    return vertices
+      .map(vertex => {
+        const dx = vertex.x - centerX;
+        const dy = vertex.y - centerY;
+        const length = Math.hypot(dx, dy) || 1;
+        const nx = dx / length;
+        const ny = dy / length;
+        return `${vertex.x + nx * expandBy},${vertex.y + ny * expandBy}`;
+      })
+      .join(' ');
+  };
+
   // 为预览计算三角形坐标的函数 - 基于相对位置
   const getPreviewTriangleCoords = (cell: TriangleCell, baseCell: TriangleCell, size: number = 50, centerX: number = 100, centerY: number = 125): string => {
     const h = (size * Math.sqrt(3)) / 2;
@@ -638,7 +659,7 @@ const TriangleBoard: React.FC = () => {
                 return (
                   <g key={cell.id}>
                     <polygon
-                      points={getTriangleCoords(cell, triangleSize)}
+                      points={expandTrianglePoints(getTriangleCoords(cell, triangleSize), 0.55)}
                       fill={fill}
                       stroke="none"
                       strokeWidth="0"
@@ -677,7 +698,7 @@ const TriangleBoard: React.FC = () => {
                     return (
                       <polygon
                         key={`follow-${triangleId}`}
-                        points={getTriangleCoords(cell, triangleSize)}
+                        points={expandTrianglePoints(getTriangleCoords(cell, triangleSize), 0.55)}
                         fill={SHAPE_COLORS[shapeId - 1]}
                         stroke="none"
                         strokeWidth="0"
@@ -745,7 +766,7 @@ const TriangleBoard: React.FC = () => {
                             return (
                               <polygon
                                 key={`${shape.id}-${polygonIndex}`}
-                                points={points}
+                                points={expandTrianglePoints(points, 0.45)}
                                 fill={color}
                                 stroke="none"
                                 strokeWidth="0"
@@ -805,7 +826,7 @@ const TriangleBoard: React.FC = () => {
               ).map((points, polygonIndex) => (
                 <polygon
                   key={`cursor-preview-${shape.id}-${polygonIndex}`}
-                  points={points}
+                  points={expandTrianglePoints(points, 0.45)}
                   fill={SHAPE_COLORS[activePreviewShapeId - 1]}
                   stroke="none"
                   strokeWidth="0"
