@@ -15,45 +15,130 @@ const recordsPath = path.join(dataDir, 'clear-records.json');
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
+function createEmptyStore() {
+  return {
+    totalClears: 0,
+    solutions: [],
+  };
+}
+
 async function ensureDataFile() {
   await fs.mkdir(dataDir, { recursive: true });
   try {
     await fs.access(recordsPath);
   } catch {
-    await fs.writeFile(recordsPath, '[]', 'utf8');
+    await fs.writeFile(recordsPath, JSON.stringify(createEmptyStore(), null, 2), 'utf8');
   }
 }
 
-async function readRecords() {
+function normalizeStore(rawParsed) {
+  // Backward compatibility: legacy array of records -> grouped solutions store.
+  if (Array.isArray(rawParsed)) {
+    const grouped = new Map();
+    for (const item of rawParsed) {
+      if (!item || typeof item.hash !== 'string') continue;
+      const existing = grouped.get(item.hash);
+      const clearedAt = typeof item.clearedAt === 'string' ? item.clearedAt : new Date().toISOString();
+      if (existing) {
+        existing.solvers += 1;
+        if (clearedAt < existing.firstSolvedAt) existing.firstSolvedAt = clearedAt;
+        if (clearedAt > existing.lastSolvedAt) existing.lastSolvedAt = clearedAt;
+      } else {
+        grouped.set(item.hash, {
+          hash: item.hash,
+          level: Number(item.level) || 1,
+          firstSolvedAt: clearedAt,
+          lastSolvedAt: clearedAt,
+          solvers: 1,
+          latestRecord: item,
+        });
+      }
+    }
+
+    const solutions = [...grouped.values()];
+    const totalClears = solutions.reduce((sum, item) => sum + item.solvers, 0);
+    return { totalClears, solutions };
+  }
+
+  if (!rawParsed || typeof rawParsed !== 'object') {
+    return createEmptyStore();
+  }
+
+  const totalClears = Number(rawParsed.totalClears) || 0;
+  const solutions = Array.isArray(rawParsed.solutions)
+    ? rawParsed.solutions
+        .filter(item => item && typeof item.hash === 'string')
+        .map(item => ({
+          hash: item.hash,
+          level: Number(item.level) || 1,
+          firstSolvedAt: typeof item.firstSolvedAt === 'string' ? item.firstSolvedAt : new Date().toISOString(),
+          lastSolvedAt: typeof item.lastSolvedAt === 'string' ? item.lastSolvedAt : new Date().toISOString(),
+          solvers: Math.max(1, Number(item.solvers) || 1),
+          latestRecord: item.latestRecord ?? null,
+        }))
+    : [];
+
+  return {
+    totalClears,
+    solutions,
+  };
+}
+
+async function readStore() {
   await ensureDataFile();
   const raw = await fs.readFile(recordsPath, 'utf8');
   try {
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    return normalizeStore(parsed);
   } catch {
-    return [];
+    return createEmptyStore();
   }
 }
 
-async function writeRecords(records) {
+async function writeStore(store) {
   await ensureDataFile();
-  await fs.writeFile(recordsPath, JSON.stringify(records, null, 2), 'utf8');
+  await fs.writeFile(recordsPath, JSON.stringify(store, null, 2), 'utf8');
 }
 
-function getStats(records) {
-  const hashSet = new Set(records.map(item => item.hash));
+function getStats(store) {
   return {
-    totalClears: records.length,
-    uniqueSolutions: hashSet.size,
+    totalClears: Number(store.totalClears) || 0,
+    uniqueSolutions: Array.isArray(store.solutions) ? store.solutions.length : 0,
   };
+}
+
+function listSolutions(store) {
+  const solutions = Array.isArray(store.solutions) ? store.solutions : [];
+  return solutions
+    .slice()
+    .sort((a, b) => b.solvers - a.solvers || a.firstSolvedAt.localeCompare(b.firstSolvedAt))
+    .map(item => ({
+      hash: item.hash,
+      level: item.level,
+      solvers: item.solvers,
+      firstSolvedAt: item.firstSolvedAt,
+      lastSolvedAt: item.lastSolvedAt,
+    }));
 }
 
 app.get('/api/stats', async (_req, res) => {
   try {
-    const records = await readRecords();
-    res.json(getStats(records));
+    const store = await readStore();
+    res.json(getStats(store));
   } catch {
     res.status(500).json({ error: 'Failed to load stats' });
+  }
+});
+
+app.get('/api/solutions', async (_req, res) => {
+  try {
+    const store = await readStore();
+    res.json({
+      totalPeople: Number(store.totalClears) || 0,
+      solutions: listSolutions(store),
+    });
+  } catch {
+    res.status(500).json({ error: 'Failed to load solutions' });
   }
 });
 
@@ -65,17 +150,49 @@ app.post('/api/clears', async (req, res) => {
   }
 
   try {
-    const records = await readRecords();
-    const existed = records.some(item => item.hash === record.hash);
+    const store = await readStore();
+    const nowIso = new Date().toISOString();
+    const solutions = Array.isArray(store.solutions) ? store.solutions : [];
+    const existedIndex = solutions.findIndex(item => item.hash === record.hash);
 
-    if (!existed) {
-      records.push(record);
-      await writeRecords(records);
+    if (existedIndex >= 0) {
+      const current = solutions[existedIndex];
+      solutions[existedIndex] = {
+        ...current,
+        level: Number(record.level) || current.level,
+        solvers: (Number(current.solvers) || 0) + 1,
+        lastSolvedAt: nowIso,
+        latestRecord: record,
+      };
+    } else {
+      solutions.push({
+        hash: record.hash,
+        level: Number(record.level) || 1,
+        firstSolvedAt: nowIso,
+        lastSolvedAt: nowIso,
+        solvers: 1,
+        latestRecord: record,
+      });
     }
 
+    store.totalClears = (Number(store.totalClears) || 0) + 1;
+    store.solutions = solutions;
+    await writeStore(store);
+
+    const savedSolution = solutions.find(item => item.hash === record.hash) ?? null;
+
     res.json({
-      saved: !existed,
-      stats: getStats(records),
+      saved: existedIndex < 0,
+      stats: getStats(store),
+      solution: savedSolution
+        ? {
+            hash: savedSolution.hash,
+            level: savedSolution.level,
+            solvers: savedSolution.solvers,
+            firstSolvedAt: savedSolution.firstSolvedAt,
+            lastSolvedAt: savedSolution.lastSolvedAt,
+          }
+        : null,
     });
   } catch {
     res.status(500).json({ error: 'Failed to save clear record' });

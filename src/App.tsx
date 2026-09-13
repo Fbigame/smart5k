@@ -7,11 +7,27 @@ interface ClearStats {
   uniqueSolutions: number
 }
 
+interface SolutionSummary {
+  hash: string
+  level: number
+  solvers: number
+  firstSolvedAt: string
+  lastSolvedAt: string
+}
+
+interface SolutionsResponse {
+  totalPeople: number
+  solutions: SolutionSummary[]
+}
+
 const API_BASE = '/api'
 
 function App() {
   const [started, setStarted] = useState(false)
   const [stats, setStats] = useState<ClearStats>({ totalClears: 0, uniqueSolutions: 0 })
+  const [solutions, setSolutions] = useState<SolutionSummary[]>([])
+  const [totalPeople, setTotalPeople] = useState(0)
+  const [showSolutions, setShowSolutions] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const loadStats = useCallback(async () => {
@@ -27,9 +43,22 @@ function App() {
     }
   }, [])
 
+  const loadSolutions = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/solutions`)
+      if (!response.ok) return
+      const data = (await response.json()) as SolutionsResponse
+      setSolutions(Array.isArray(data.solutions) ? data.solutions : [])
+      setTotalPeople(typeof data.totalPeople === 'number' ? data.totalPeople : 0)
+    } catch {
+      // Ignore transient API errors and keep UI usable.
+    }
+  }, [])
+
   useEffect(() => {
     void loadStats()
-  }, [loadStats])
+    void loadSolutions()
+  }, [loadStats, loadSolutions])
 
   const handleLevelCleared = useCallback(async (record: LevelClearRecord) => {
     try {
@@ -51,10 +80,18 @@ function App() {
       } else {
         await loadStats()
       }
+      await loadSolutions()
     } catch {
       await loadStats()
+      await loadSolutions()
     }
-  }, [loadStats])
+  }, [loadStats, loadSolutions])
+
+  const formatTime = (iso: string) => {
+    const d = new Date(iso)
+    if (Number.isNaN(d.getTime())) return '-'
+    return d.toLocaleString('zh-CN', { hour12: false })
+  }
 
   return (
     <main className="app-shell">
@@ -77,7 +114,35 @@ function App() {
         <button type="button" className="start-btn" onClick={() => setStarted(true)}>
           {started ? '继续游戏' : '开始游戏'}
         </button>
+        <button type="button" className="ghost-btn" onClick={() => setShowSolutions(prev => !prev)}>
+          {showSolutions ? '收起解法' : '查看解法'}
+        </button>
       </section>
+
+      {showSolutions && (
+        <section className="solutions-card">
+          <div className="solutions-head">
+            <h2>解法排行榜</h2>
+            <p>累计参与人数：{totalPeople}</p>
+          </div>
+          {solutions.length === 0 ? (
+            <p className="empty-tip">还没有解法记录，快成为第一个通关者。</p>
+          ) : (
+            <div className="solutions-list">
+              {solutions.map((item, index) => (
+                <article key={item.hash} className="solution-item">
+                  <p className="solution-rank">#{index + 1}</p>
+                  <p><strong>Hash：</strong>{item.hash}</p>
+                  <p><strong>关卡：</strong>{item.level}</p>
+                  <p><strong>总人数：</strong>{item.solvers}</p>
+                  <p><strong>首次解出：</strong>{formatTime(item.firstSolvedAt)}</p>
+                  <p><strong>最近一次：</strong>{formatTime(item.lastSolvedAt)}</p>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {started && (
         <section className="game-stage">
