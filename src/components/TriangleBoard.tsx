@@ -221,6 +221,9 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
   const [level, setLevel] = useState(1);
   const boardSvgRef = useRef<SVGSVGElement | null>(null);
   const shapeActionMenuRef = useRef<HTMLDivElement | null>(null);
+  const cursorRafRef = useRef<number | null>(null);
+  const pendingCursorRef = useRef<{ x: number; y: number } | null>(null);
+  const lastBoardMoveTimeRef = useRef(0);
 
   // 右侧可见图形由棋盘占用状态实时推导，避免“放置后又出现”的状态不一致
   const placedShapes = useMemo(() => {
@@ -915,11 +918,32 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
     }
 
     const handleGlobalMouseMove = (event: PointerEvent) => {
-      setCursorPosition({ x: event.clientX, y: event.clientY });
+      pendingCursorRef.current = { x: event.clientX, y: event.clientY };
+      if (cursorRafRef.current !== null) return;
+
+      cursorRafRef.current = window.requestAnimationFrame(() => {
+        const next = pendingCursorRef.current;
+        if (next) {
+          setCursorPosition(prev => {
+            if (prev && prev.x === next.x && prev.y === next.y) {
+              return prev;
+            }
+            return next;
+          });
+        }
+        cursorRafRef.current = null;
+      });
     };
 
     window.addEventListener('pointermove', handleGlobalMouseMove);
-    return () => window.removeEventListener('pointermove', handleGlobalMouseMove);
+    return () => {
+      window.removeEventListener('pointermove', handleGlobalMouseMove);
+      if (cursorRafRef.current !== null) {
+        window.cancelAnimationFrame(cursorRafRef.current);
+        cursorRafRef.current = null;
+      }
+      pendingCursorRef.current = null;
+    };
   }, [activePreviewShapeId]);
 
   useEffect(() => {
@@ -1048,6 +1072,13 @@ const TriangleBoard: React.FC<TriangleBoardProps> = ({ onLevelCleared }) => {
 
   const handleBoardMouseMove = (event: React.MouseEvent<SVGSVGElement> | React.PointerEvent<SVGSVGElement>) => {
     if (!activePreviewShapeId || cellCenters.length === 0) return;
+
+    // 限制重计算频率到每帧，避免拖动时高频重算导致掉帧。
+    const now = performance.now();
+    if (now - lastBoardMoveTimeRef.current < 16) {
+      return;
+    }
+    lastBoardMoveTimeRef.current = now;
 
     if (movingShapeId && dragStartPoint && !draggingShape) {
       const dx = event.clientX - dragStartPoint.x;
